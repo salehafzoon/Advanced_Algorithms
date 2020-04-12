@@ -12,12 +12,12 @@ EXP = 'exponential'
 START_T = 1
 T = START_T
 ALPHA = 0.8
-TEMP_MODE = LINEAR
+TEMP_MODE = LOG
 INIT_HEURISTIC = True
-NUM_ITERATIONS = 65
-DEBUG = True
-
-problem = tsplib95.load_problem("br17.10.sop")
+NUM_ITERATIONS = 500
+DEBUG = False
+EPSILON = 1e-323
+problem = tsplib95.load_problem("instances/E/prob.100.sop")
 graph = None
 dependencies = []
 
@@ -231,12 +231,20 @@ def acceptance_probability(cost, new_cost, temperature):
 
 def get_neighbour(problem, dependencies, state):
     new_states = []
-    new_states.append(fpp3exchange(problem, dependencies, state))
-    new_states.append(bpp3exchange(problem, dependencies, state))
-    new_states.sort(key=lambda x: x[1])
-    
-    return new_states[0]
+    new_state1 = fpp3exchange(problem, dependencies, state)
+    new_state2 = bpp3exchange(problem, dependencies, state)
 
+    if new_state1 != None:
+        new_states.append(new_state1)
+    if new_state2 != None:
+        new_states.append(new_state2)
+
+    if len(new_states) != 0:
+        new_states.sort(key=lambda x: x[1])
+        return new_states[0]
+
+    else:
+        return state
 
 # T_(k+1)= α T_k [Dosso,Oldenburg, 1991]
 # T_(k+1)= T_0/log⁡(k+1) [Geman and Geman]
@@ -249,7 +257,7 @@ def updateTemperature(step):
     if TEMP_MODE == LINEAR:
         return ALPHA * T
     elif TEMP_MODE == LOG:
-        return START_T / math.log(step+1)
+        return START_T / math.log(step+2)
     elif TEMP_MODE == EXP:
         return math.exp(-ALPHA * step+1)*START_T
 
@@ -279,8 +287,10 @@ def annealing(random_start, cost_function, random_neighbour,
         # else:
         #    print("  ==> Reject it...")
         T = updateTemperature(step)
+        if T == 0.0:
+            T = EPSILON
 
-    return state, cost, states, costs
+    return new_state, new_cost, states, costs
 
 
 if __name__ == '__main__':
@@ -302,7 +312,12 @@ if __name__ == '__main__':
 
     # best = 0
 
-    state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
-                                           acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
+    answers = []
+    for _ in range(10):
+        state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
+                                               acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
+        print(cost, 'finded')
+        answers.append((state, cost))
 
-    print('best cost:', min(costs))
+    print("min cost:", min(answers, key=lambda t: t[1])[1])
+    print("avg cost:", sum(ans[1] for ans in answers)/len(answers))
