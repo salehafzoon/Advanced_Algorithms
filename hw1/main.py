@@ -4,6 +4,8 @@ import random as rn
 import math
 import copy
 from random import randrange
+import matplotlib.pyplot as plt
+import time
 
 LINEAR = 'linear'
 LOG = 'logarithmic'
@@ -17,7 +19,7 @@ INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/M/R.600.100.60.sop")
+problem = tsplib95.load_problem("instances/M/R.700.1000.15.sop")
 graph = None
 dependencies = []
 
@@ -122,7 +124,7 @@ def bpp3exchange(problem, deps, solution):
             rightDeps.extend(deps[node])
 
         i -= rightPathLen
-     
+
         leftPath = []
         for j in range(i, 0, -1):
 
@@ -170,13 +172,13 @@ def random_start(graph, deps):
                     for i in result if i not in solution]
 
                 candidates = sorted(candidates, key=lambda tup: tup[1])
-               
+
                 solution.append(candidates[0][0])
 
                 for dep in dependencies:
                     if(candidates[0][0] in dep):
                         dep.remove(candidates[0][0])
-             
+
             else:
                 if(len(dependencies[i]) == 0 and not(i in solution)):
                     solution.append(i)
@@ -210,7 +212,7 @@ def acceptance_probability(cost, new_cost, temperature):
         return p
 
 
-def get_neighbour(problem, dependencies, state,cost):
+def get_neighbour(problem, dependencies, state, cost):
     new_states = []
     new_state1 = fpp3exchange(problem, dependencies, state)
     new_state2 = bpp3exchange(problem, dependencies, state)
@@ -225,7 +227,7 @@ def get_neighbour(problem, dependencies, state,cost):
         return new_states[0]
 
     else:
-        return (state,cost)
+        return (state, cost)
 
 
 def updateTemperature(step):
@@ -265,17 +267,33 @@ def annealing(random_start, cost_function, random_neighbour,
     return new_state, new_cost, states, costs
 
 
+def plotResult(costs):
+
+    plt.plot(list(range(len(costs))), costs, 'bo-',
+             label='algorithm progress', linewidth=0.8)
+    plt.show()
+
+
 if __name__ == '__main__':
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
 
     answers = []
+
     for _ in range(10):
+        start = time.time()
+
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
-        print(cost, 'founded')
-        answers.append((state, cost))
+        duration = str(time.time() - start)[0:10]
+        print(cost, 'founded in ', duration, 'seconds')
+        # plotResult(costs)
+        answers.append((state, cost, duration))
 
-    print("min cost:", min(answers, key=lambda t: t[1])[1])
+    print("\nmin cost:", min(answers, key=lambda t: t[1])[1])
     print("avg cost:", sum(ans[1] for ans in answers)/len(answers))
+    print("max cost:", max(answers, key=lambda t: t[1])[1])
+
+    print("\nmin time:", min(answers, key=lambda t: t[2])[2])
+    print("max time:", max(answers, key=lambda t: t[2])[2])
