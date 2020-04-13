@@ -12,12 +12,12 @@ EXP = 'exponential'
 START_T = 1
 T = START_T
 ALPHA = 0.8
-TEMP_MODE = LOG
+TEMP_MODE = EXP
 INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/E/prob.100.sop")
+problem = tsplib95.load_problem("instances/H/typeset.10835.26.sop")
 graph = None
 dependencies = []
 
@@ -271,6 +271,7 @@ def annealing(random_start, cost_function, random_neighbour,
     cost = cost_function(problem, state)
     states, costs = [state], [cost]
     for step in range(maxsteps):
+        # print('len:', len(get_neighbour(problem, dependencies, state)))
         (new_state, new_cost) = get_neighbour(problem, dependencies, state)
         if debug:
             # print('step:', step, '\t T:', T, '\t state:',
