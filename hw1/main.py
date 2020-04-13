@@ -17,7 +17,7 @@ INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/H/typeset.10835.26.sop")
+problem = tsplib95.load_problem("instances/M/R.600.100.60.sop")
 graph = None
 dependencies = []
 
@@ -47,7 +47,6 @@ class Graph(object):
         problemWeights = problem.edge_weights[1:]
 
         for i in range(len(problemEgdes)):
-            # if (i % 19 != 0):
             self.edges.append(Edge(problemEgdes[i], problemWeights[i]))
 
 
@@ -76,7 +75,6 @@ def fpp3exchange(problem, deps, solution):
         leftPath.extend(solution[i:i+leftPathLen])
 
         i += leftPathLen
-        # print("left:", leftPath)
         end = False
         rightPath = []
         for j in range(i, len(solution)):
@@ -94,16 +92,13 @@ def fpp3exchange(problem, deps, solution):
                 rightPath.append(solution[j])
 
         if(len(rightPath) != 0):
-            # print("right:", rightPath, "\n")
             sol = solution[0:h+1]
             sol.extend(rightPath)
             sol.extend(leftPath)
             sol.extend(solution[len(sol):])
-            # print("sol:", sol, "\n")
             solutions.append((sol, cost_function(problem, sol)))
 
     solutions.sort(key=lambda x: x[1])
-    # print('\nforward:', solutions)
     if len(solutions) != 0:
         return solutions[0]
     else:
@@ -117,7 +112,6 @@ def bpp3exchange(problem, deps, solution):
     solutions = []
     for it in range(int(dimension/2)):
         h = randrange(3, dimension)
-        # h = 3
         i = h - 1
         rightPath = []
         rightPathLen = randrange(1, i+1)
@@ -128,9 +122,7 @@ def bpp3exchange(problem, deps, solution):
             rightDeps.extend(deps[node])
 
         i -= rightPathLen
-        # print("right:", rightPath)
-        # print('right deps:',rightDeps)
-
+     
         leftPath = []
         for j in range(i, 0, -1):
 
@@ -141,16 +133,13 @@ def bpp3exchange(problem, deps, solution):
                 break
 
         if(len(leftPath) != 0):
-            # print("left:", leftPath)
             sol = solution[h:]
             sol = leftPath + sol
             sol = rightPath + sol
             sol = solution[:dimension - len(sol)] + sol
-            # print("sol:", sol, "\n")
             solutions.append((sol, cost_function(problem, sol)))
 
     solutions.sort(key=lambda x: x[1])
-    # print('\nbackward:', solutions)
     if len(solutions) != 0:
         return solutions[0]
     else:
@@ -176,22 +165,18 @@ def random_start(graph, deps):
                 result = [i for i in range(
                     len(dependencies)) if len(dependencies[i]) == 0]
 
-                # print(result)
-
                 candidates = [
                     (i, graph.edges[(src*graph.dimension) + i].weight)
                     for i in result if i not in solution]
 
                 candidates = sorted(candidates, key=lambda tup: tup[1])
-                # print(candidates)
-
+               
                 solution.append(candidates[0][0])
 
                 for dep in dependencies:
                     if(candidates[0][0] in dep):
                         dep.remove(candidates[0][0])
-                # print(solution)
-
+             
             else:
                 if(len(dependencies[i]) == 0 and not(i in solution)):
                     solution.append(i)
@@ -212,7 +197,6 @@ def cost_function(problem, solution):
         src = sol.pop(0)
         dest = sol[0]
         w = edgeWeights[(src*problem.dimension)+dest]
-        # print(src, dest, w)
         weight += w
 
     return weight
@@ -220,16 +204,13 @@ def cost_function(problem, solution):
 
 def acceptance_probability(cost, new_cost, temperature):
     if new_cost < cost:
-        # print("    - Acceptance probabilty = 1 as new_cost = {} < cost = {}...".format(new_cost, cost))
         return 1
     else:
-
         p = math.exp(- (new_cost - cost) / temperature)
-        # print("    - Acceptance probabilty = {:.3g}...".format(p))
         return p
 
 
-def get_neighbour(problem, dependencies, state):
+def get_neighbour(problem, dependencies, state,cost):
     new_states = []
     new_state1 = fpp3exchange(problem, dependencies, state)
     new_state2 = bpp3exchange(problem, dependencies, state)
@@ -244,12 +225,7 @@ def get_neighbour(problem, dependencies, state):
         return new_states[0]
 
     else:
-        return state
-
-# T_(k+1)= α T_k [Dosso,Oldenburg, 1991]
-# T_(k+1)= T_0/log⁡(k+1) [Geman and Geman]
-# T_k= e^(-αk).T_0
-# T_k=(T_1/T_0 ) ^k ,(T_1/T_(0 ) )=0.9 [Kirptrick, 1983]
+        return (state,cost)
 
 
 def updateTemperature(step):
@@ -271,12 +247,9 @@ def annealing(random_start, cost_function, random_neighbour,
     cost = cost_function(problem, state)
     states, costs = [state], [cost]
     for step in range(maxsteps):
-        # print('len:', len(get_neighbour(problem, dependencies, state)))
-        (new_state, new_cost) = get_neighbour(problem, dependencies, state)
+        (new_state, new_cost) = get_neighbour(
+            problem, dependencies, state, cost)
         if debug:
-            # print('step:', step, '\t T:', T, '\t state:',
-            #       state, '\t cost:', cost, '\t new_state:', new_state,
-            #       '\t new_cost:', new_cost)
 
             print('step:', step, '\t T:', T, '\t new_cost:', new_cost)
 
@@ -284,9 +257,7 @@ def annealing(random_start, cost_function, random_neighbour,
             state, cost = new_state, new_cost
             states.append(state)
             costs.append(cost)
-            # print("  ==> Accept it!")
-        # else:
-        #    print("  ==> Reject it...")
+
         T = updateTemperature(step)
         if T == 0.0:
             T = EPSILON
@@ -299,25 +270,11 @@ if __name__ == '__main__':
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
 
-    # print('\n', dependencies)
-    # solution = random_start(graph, dependencies)
-    # print('\n', solution)
-    # weight = cost_function(problem, solution)
-    # print("weight:", weight, "\n")
-
-    # solutions = []
-    # solutions.append(fpp3exchange(problem, dependencies, solution))
-    # solutions.append(bpp3exchange(problem, dependencies, solution))
-
-    # print("\nsolutions:", solutions)
-
-    # best = 0
-
     answers = []
     for _ in range(10):
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
-        print(cost, 'finded')
+        print(cost, 'founded')
         answers.append((state, cost))
 
     print("min cost:", min(answers, key=lambda t: t[1])[1])
