@@ -15,11 +15,11 @@ START_T = 1
 T = START_T
 ALPHA = 0.8
 TEMP_MODE = EXP
-INIT_HEURISTIC = True
+INIT_HEURISTIC = False
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/M/R.700.1000.15.sop")
+problem = tsplib95.load_problem("instances/H/jpeg.4753.54.sop")
 graph = None
 dependencies = []
 
@@ -269,8 +269,8 @@ def annealing(random_start, cost_function, random_neighbour,
 
 def plotResult(costs):
 
-    plt.plot(list(range(len(costs))), costs, 'bo-',
-             label='algorithm progress', linewidth=0.8)
+    plt.plot(list(range(len(costs))), costs, '-', color="gray",
+             label='algorithm progress', linewidth=2)
     plt.show()
 
 
@@ -278,17 +278,18 @@ if __name__ == '__main__':
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
+    print(problem.name)
 
     answers = []
 
-    for _ in range(10):
+    for _ in range(1):
         start = time.time()
 
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
         duration = str(time.time() - start)[0:10]
         print(cost, 'founded in ', duration, 'seconds')
-        # plotResult(costs)
+        plotResult(costs)
         answers.append((state, cost, duration))
 
     print("\nmin cost:", min(answers, key=lambda t: t[1])[1])
