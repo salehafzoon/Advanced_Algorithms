@@ -19,7 +19,7 @@ INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/M/R.400.1000.15.sop")
+problem = tsplib95.load_problem("instances/E/rbg358a.sop")
 graph = None
 dependencies = []
 
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 
     answers = []
 
-    for _ in range(10):
+    for _ in range(20):
         start = time.time()
 
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
