@@ -16,10 +16,10 @@ T = START_T
 ALPHA = 0.9
 TEMP_MODE = EXP
 INIT_HEURISTIC = True
-NUM_ITERATIONS = 50
+NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/M/R.600.1000.1.sop")
+problem = tsplib95.load_problem("instances/E/br17.1.sop")
 graph = None
 dependencies = []
 
@@ -278,7 +278,7 @@ if __name__ == '__main__':
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
-    print(problem.name)
+    print("\ninstance:",problem.name,"\n")
 
     answers = []
 
@@ -288,14 +288,19 @@ if __name__ == '__main__':
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
         duration = str(time.time() - start)[0:6]
-        print(cost, 'founded in ', duration, 'seconds')
+        print("answer[0:20]=", state[0:20], "cost:",cost,
+              'founded in ', duration, 'seconds')
         # plotResult(costs)
         answers.append((state, cost, duration))
 
-    print("\nmin cost:", min(answers, key=lambda t: t[1])[1])
-    print("avg cost:", sum(ans[1] for ans in answers)/len(answers))
-    print("max cost:", max(answers, key=lambda t: t[1])[1])
+    minAns = min(answers, key=lambda t: t[1])
+    maxAns = max(answers, key=lambda t: t[1])
 
+    print("\nbest[0:20]=", minAns[0][0:20], "\tmin cost:", minAns[1])
+    print("worst[0:20]=", maxAns[0][0:20],"\tmax cost:", max(answers, key=lambda t: t[1])[1])
+    print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
+    
     print("\nmin time:", min(answers, key=lambda t: t[2])[2])
-    print("avg time:", str(sum(float(ans[2]) for ans in answers)/len(answers))[0:6])
+    print("avg time:", str(sum(float(ans[2])
+                               for ans in answers)/len(answers))[0:6])
     print("max time:", max(answers, key=lambda t: t[2])[2])
