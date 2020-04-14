@@ -13,13 +13,13 @@ EXP = 'exponential'
 
 START_T = 1
 T = START_T
-ALPHA = 0.8
+ALPHA = 0.9
 TEMP_MODE = EXP
 INIT_HEURISTIC = False
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/H/jpeg.4753.54.sop")
+problem = tsplib95.load_problem("instances/E/rbg341a.sop")
 graph = None
 dependencies = []
 
@@ -282,14 +282,14 @@ if __name__ == '__main__':
 
     answers = []
 
-    for _ in range(1):
+    for _ in range(20):
         start = time.time()
 
         state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
-        duration = str(time.time() - start)[0:10]
+        duration = str(time.time() - start)[0:6]
         print(cost, 'founded in ', duration, 'seconds')
-        plotResult(costs)
+        # plotResult(costs)
         answers.append((state, cost, duration))
 
     print("\nmin cost:", min(answers, key=lambda t: t[1])[1])
@@ -297,4 +297,5 @@ if __name__ == '__main__':
     print("max cost:", max(answers, key=lambda t: t[1])[1])
 
     print("\nmin time:", min(answers, key=lambda t: t[2])[2])
+    print("avg time:", str(sum(float(ans[2]) for ans in answers)/len(answers))[0:6])
     print("max time:", max(answers, key=lambda t: t[2])[2])
