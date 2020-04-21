@@ -1,24 +1,15 @@
 import tsplib95
 from pprint import pprint
-import random as rn
+import random as rnd
 import math
 import copy
 from random import randrange
 import matplotlib.pyplot as plt
 import time
 
-LINEAR = 'linear'
-LOG = 'logarithmic'
-EXP = 'exponential'
-
-START_T = 1
-T = START_T
-ALPHA = 0.9
-TEMP_MODE = EXP
-INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
+ALPHA = 0.15
 DEBUG = False
-EPSILON = 1e-323
 problem = tsplib95.load_problem("instances/E/br17.1.sop")
 graph = None
 dependencies = []
@@ -98,7 +89,7 @@ def fpp3exchange(problem, deps, solution):
             sol.extend(rightPath)
             sol.extend(leftPath)
             sol.extend(solution[len(sol):])
-            solutions.append((sol, cost_function(problem, sol)))
+            solutions.append((sol, costFunction(problem, sol)))
 
     solutions.sort(key=lambda x: x[1])
     if len(solutions) != 0:
@@ -139,7 +130,7 @@ def bpp3exchange(problem, deps, solution):
             sol = leftPath + sol
             sol = rightPath + sol
             sol = solution[:dimension - len(sol)] + sol
-            solutions.append((sol, cost_function(problem, sol)))
+            solutions.append((sol, costFunction(problem, sol)))
 
     solutions.sort(key=lambda x: x[1])
     if len(solutions) != 0:
@@ -148,7 +139,7 @@ def bpp3exchange(problem, deps, solution):
         return None
 
 
-def cost_function(problem, solution):
+def costFunction(problem, solution):
 
     weight = 0
     edgeWeights = problem.edge_weights[1:]
@@ -164,6 +155,7 @@ def cost_function(problem, solution):
 
 
 def constructGreadyRandSol(graph, deps):
+
     solution = []
 
     # array of all nodes dependencies
@@ -189,40 +181,49 @@ def constructGreadyRandSol(graph, deps):
             # gready manner : sort from best to worst
             candidates = sorted(candidates, key=lambda tup: tup[1])
 
-            # random manner : select from (a=0.2) of best candidates
-            # (rank based) selection
-            solution.append(candidates[0][0])
+            # random manner : select from ALPHA best of candidates
+            # (rank based selection)
+            index = int(ALPHA * graph.dimension)
+            dest = rnd.choice(list(candidates[0:index]))[0]
+            solution.append(dest)
 
             # updates node dependencies
             for dep in dependencies:
-                if(candidates[0][0] in dep):
-                    dep.remove(candidates[0][0])
+                if(dest in dep):
+                    dep.remove(dest)
 
     return solution
 
 
-def localSearch(problem, dependencies, state, cost):
-    new_states = []
-    new_state1 = fpp3exchange(problem, dependencies, state)
-    new_state2 = bpp3exchange(problem, dependencies, state)
+def localSearch(problem, dependencies, solution):
+    (state, cost) = solution
+    
+    new_solutions = []
+    new_solutions1 = fpp3exchange(problem, dependencies, state)
+    new_solutions2 = bpp3exchange(problem, dependencies, state)
 
-    if new_state1 != None:
-        new_states.append(new_state1)
-    if new_state2 != None:
-        new_states.append(new_state2)
+    if new_solutions1 != None:
+        new_solutions.append(new_solutions1)
+    if new_solutions2 != None:
+        new_solutions.append(new_solutions2)
 
-    if len(new_states) != 0:
-        new_states.sort(key=lambda x: x[1])
-        return new_states[0]
+    if len(new_solutions) != 0:
+        new_solutions.sort(key=lambda x: x[1])
+        return new_solutions[0]
 
     else:
         return (state, cost)
 
 
-def updateSolution():
-    pass
+def updateSolution(bestSolution, localBest):
 
-def GRASP(constructGreadyRandSol, cost_function, localSearch,
+    if bestSolution == None or bestSolution[1] > localBest[1]:
+        bestSolution = localBest
+
+    return bestSolution
+
+
+def GRASP(constructGreadyRandSol, costFunction, localSearch,
           maxsteps=1000, debug=True):
 
     global problem
@@ -231,18 +232,18 @@ def GRASP(constructGreadyRandSol, cost_function, localSearch,
     for step in range(maxsteps):
 
         state = constructGreadyRandSol(graph, dependencies)
-        cost = cost_function(problem, state)
+        cost = costFunction(problem, state)
         solution = (state, cost)
 
-        # greedy randomized solution
-        (new_state, new_cost) = localSearch(
-            problem, dependencies, state, cost)
-
+        localBest = localSearch(problem, dependencies, solution)
+        
+        bestSolution = updateSolution(bestSolution, localBest)
+        
         if debug:
+            print('\nstep:', step, '\t solution:', solution[1], '\t localBest:', localBest[1],
+                '\t bestSolution:', bestSolution[1])
 
-            print('step:', step, '\t T:', T, '\t new_cost:', new_cost)
-
-    return new_state, new_cost, states, costs
+    return bestSolution
 
 
 def plotResult(costs):
@@ -263,7 +264,7 @@ if __name__ == '__main__':
     for _ in range(10):
         start = time.time()
 
-        state, cost, states, costs = GRASP(constructGreadyRandSol, cost_function,
+        (state, cost) = GRASP(constructGreadyRandSol, costFunction,
                                            localSearch, NUM_ITERATIONS, DEBUG)
 
         duration = str(time.time() - start)[0:6]
