@@ -6,12 +6,15 @@ import copy
 from random import randrange
 import matplotlib.pyplot as plt
 import time
+import openpyxl
+import os
 
 NUM_ITERATIONS = 500
-ALPHA = 0.15
+ALPHA = 0.02
 DEBUG = False
-problem = tsplib95.load_problem("instances/E/br17.1.sop")
+problem = tsplib95.load_problem("instances/E/prob.7.70.sop")
 graph = None
+EXEl_WRITE = True
 dependencies = []
 
 
@@ -183,8 +186,9 @@ def constructGreadyRandSol(graph, deps):
 
             # random manner : select from ALPHA best of candidates
             # (rank based selection)
-            index = int(ALPHA * graph.dimension)
-            dest = rnd.choice(list(candidates[0:index]))[0]
+            # index = int(ALPHA * graph.dimension)
+            index = int(rnd.uniform(0, ALPHA) * graph.dimension)
+            dest = rnd.choice(list(candidates[0:1+index]))[0]
             solution.append(dest)
 
             # updates node dependencies
@@ -197,7 +201,7 @@ def constructGreadyRandSol(graph, deps):
 
 def localSearch(problem, dependencies, solution):
     (state, cost) = solution
-    
+
     new_solutions = []
     new_solutions1 = fpp3exchange(problem, dependencies, state)
     new_solutions2 = bpp3exchange(problem, dependencies, state)
@@ -223,10 +227,9 @@ def updateSolution(bestSolution, localBest):
     return bestSolution
 
 
-def GRASP(constructGreadyRandSol, costFunction, localSearch,
+def GRASP(problem, constructGreadyRandSol, costFunction, localSearch,
           maxsteps=1000, debug=True):
 
-    global problem
     bestSolution = None
 
     for step in range(maxsteps):
@@ -236,12 +239,12 @@ def GRASP(constructGreadyRandSol, costFunction, localSearch,
         solution = (state, cost)
 
         localBest = localSearch(problem, dependencies, solution)
-        
+
         bestSolution = updateSolution(bestSolution, localBest)
-        
-        if debug:
-            print('\nstep:', step, '\t solution:', solution[1], '\t localBest:', localBest[1],
-                '\t bestSolution:', bestSolution[1])
+
+        if DEBUG:
+            print('\nstep:', step, '\t solution:', solution[1],
+                  '\t localBest:', localBest[1], '\t bestSolution:', bestSolution[1])
 
     return bestSolution
 
@@ -253,31 +256,13 @@ def plotResult(costs):
     plt.show()
 
 
-if __name__ == '__main__':
-
-    graph = Graph(problem)
-    dependencies = calculateDependencies(problem)
-    print("\ninstance:", problem.name, "\n")
-
-    answers = []
-
-    for _ in range(10):
-        start = time.time()
-
-        (state, cost) = GRASP(constructGreadyRandSol, costFunction,
-                                           localSearch, NUM_ITERATIONS, DEBUG)
-
-        duration = str(time.time() - start)[0:6]
-        print("answer[0:20]=", state[0:20], "cost:", cost,
-              'founded in ', duration, 'seconds')
-        # plotResult(costs)
-        answers.append((state, cost, duration))
+def printResult(answers):
 
     minAns = min(answers, key=lambda t: t[1])
     maxAns = max(answers, key=lambda t: t[1])
 
-    print("\nbest[0:20]=", minAns[0][0:20], "\tmin cost:", minAns[1])
-    print("worst[0:20]=", maxAns[0][0:20], "\tmax cost:",
+    print("\nbest[0:10]=", minAns[0][0:10], "\tmin cost:", minAns[1])
+    print("worst[0:10]=", maxAns[0][0:10], "\tmax cost:",
           max(answers, key=lambda t: t[1])[1])
     print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
 
@@ -285,3 +270,63 @@ if __name__ == '__main__':
     print("avg time:", str(sum(float(ans[2])
                                for ans in answers)/len(answers))[0:6])
     print("max time:", max(answers, key=lambda t: t[2])[2])
+
+
+def writeResultToExel(file_name,answers,myRow):
+    minCost = min(answers, key=lambda t: t[1])[1]
+    maxCost = max(answers, key=lambda t: t[1])[1]
+    avgCost = sum(ans[1] for ans in answers)/len(answers)
+
+    minTime = min(answers, key=lambda t: t[2])[2]
+    maxTime = max(answers, key=lambda t: t[2])[2]
+    avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
+
+    wbkName = 'Results.xlsx'
+    wbk = openpyxl.load_workbook(wbkName)
+    for wks in wbk.worksheets:
+        myCol = 4
+        
+        wks.cell(row=myRow, column=1).value = file_name
+        
+        wks.cell(row=myRow, column=myCol).value = minCost
+        wks.cell(row=myRow, column=myCol+1).value = avgCost
+        wks.cell(row=myRow, column=myCol+2).value = maxCost
+        
+        wks.cell(row=myRow, column=myCol+3).value = minTime
+        wks.cell(row=myRow, column=myCol+4).value = avgTime
+        wks.cell(row=myRow, column=myCol+5).value = maxTime
+        
+    wbk.save(wbkName)
+    wbk.close
+
+
+if __name__ == '__main__':
+
+    myRow = 51
+    if EXEl_WRITE:
+        for root, directories, filenames in os.walk('instances/M/'):
+            for filename in filenames:
+                file = os.path.join(root, filename)
+                problem = tsplib95.load_problem(str(file))
+
+                graph = Graph(problem)
+                dependencies = calculateDependencies(problem)
+                print("\ninstance:", problem.name, "\n")
+
+                answers = []
+
+                for _ in range(5):
+                    start = time.time()
+
+                    (state, cost) = GRASP(problem, constructGreadyRandSol,
+                                            costFunction, localSearch, NUM_ITERATIONS, DEBUG)
+
+                    duration = str(time.time() - start)[0:6]
+                    # print("answer[0:10]=", state[0:10], "cost:", cost,
+                            #       'founded in ', duration, 'seconds')
+                            # plotResult(costs)
+                    answers.append((state, cost, duration))
+
+                # printResult(answers)
+                writeResultToExel(filename,answers,myRow)
+                myRow +=1
