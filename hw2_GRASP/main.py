@@ -9,12 +9,11 @@ import time
 import openpyxl
 import os
 
-NUM_ITERATIONS = 500
 ALPHA = 0.02
+NUM_ITERATIONS = 500
 DEBUG = False
-problem = tsplib95.load_problem("instances/E/prob.7.70.sop")
 graph = None
-EXEl_WRITE = True
+EXEl_WRITE = False
 dependencies = []
 
 
@@ -230,6 +229,7 @@ def updateSolution(bestSolution, localBest):
 def GRASP(problem, constructGreadyRandSol, costFunction, localSearch,
           maxsteps=1000, debug=True):
 
+    history = []
     bestSolution = None
 
     for step in range(maxsteps):
@@ -237,22 +237,26 @@ def GRASP(problem, constructGreadyRandSol, costFunction, localSearch,
         state = constructGreadyRandSol(graph, dependencies)
         cost = costFunction(problem, state)
         solution = (state, cost)
-
-        localBest = localSearch(problem, dependencies, solution)
-
-        bestSolution = updateSolution(bestSolution, localBest)
+    
+        # localBest = localSearch(problem, dependencies, solution)
+        # bestSolution = updateSolution(bestSolution, localBest)
+    
+        bestSolution = updateSolution(bestSolution, solution)
+        history.append(bestSolution[1])
 
         if DEBUG:
             print('\nstep:', step, '\t solution:', solution[1],
                   '\t localBest:', localBest[1], '\t bestSolution:', bestSolution[1])
 
-    return bestSolution
+    return bestSolution,history
 
 
 def plotResult(costs):
 
-    plt.plot(list(range(len(costs))), costs, '-', color="blue",
-             label='algorithm progress', linewidth=2)
+    plt.plot(list(range(len(costs))), costs, '-', color="gray",
+             label='algorithm progress', linewidth=1.5)
+    plt.xlabel('best solution')
+    plt.ylabel('iteration')         
     plt.show()
 
 
@@ -302,31 +306,33 @@ def writeResultToExel(file_name,answers,myRow):
 
 if __name__ == '__main__':
 
-    myRow = 51
+    myRow = 2
+    # for root, directories, filenames in os.walk("instances/M/"):
+    #     for filename in filenames:
+    #         file = os.path.join(root, filename)
+    #         # problem = tsplib95.load_problem(str(file))
+    problem = tsplib95.load_problem("instances/M/R.200.100.60.sop")
+
+    graph = Graph(problem)
+    dependencies = calculateDependencies(problem)
+    print("\ninstance:", problem.name, "\n")
+
+    answers = []
+
+    for _ in range(10):
+        start = time.time()
+
+        (state, cost),history = GRASP(problem, constructGreadyRandSol,
+                                costFunction, localSearch, NUM_ITERATIONS, DEBUG)
+
+        # print(history)
+        # plotResult(history)
+    
+        duration = str(time.time() - start)[0:6]
+        answers.append((state, cost, duration))
+
+    # if DEBUG:
+    printResult(answers)
     if EXEl_WRITE:
-        for root, directories, filenames in os.walk('instances/M/'):
-            for filename in filenames:
-                file = os.path.join(root, filename)
-                problem = tsplib95.load_problem(str(file))
-
-                graph = Graph(problem)
-                dependencies = calculateDependencies(problem)
-                print("\ninstance:", problem.name, "\n")
-
-                answers = []
-
-                for _ in range(5):
-                    start = time.time()
-
-                    (state, cost) = GRASP(problem, constructGreadyRandSol,
-                                            costFunction, localSearch, NUM_ITERATIONS, DEBUG)
-
-                    duration = str(time.time() - start)[0:6]
-                    # print("answer[0:10]=", state[0:10], "cost:", cost,
-                            #       'founded in ', duration, 'seconds')
-                            # plotResult(costs)
-                    answers.append((state, cost, duration))
-
-                # printResult(answers)
-                writeResultToExel(filename,answers,myRow)
-                myRow +=1
+        writeResultToExel(filename,answers,myRow)
+        myRow +=1
