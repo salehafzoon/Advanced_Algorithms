@@ -11,7 +11,6 @@ import os
 import statistics
 import numpy as np
 
-ALPHA = 0.02
 NUM_ITERATIONS = 500
 DEBUG = False
 graph = None
@@ -94,8 +93,11 @@ def fpp3exchange(problem, deps, solution):
             sol.extend(rightPath)
             sol.extend(leftPath)
             sol.extend(solution[len(sol):])
-            solutions.append((sol, costFunction(problem, sol),
-                              rightPath, leftPath))
+
+            # creating action for saving in tabu list
+            action = (solution[h], solution[i], solution[j])
+
+            solutions.append((sol, costFunction(problem, sol), action))
 
     solutions.sort(key=lambda x: x[1])
     if len(solutions) != 0:
@@ -207,7 +209,7 @@ def initialStart(graph, deps):
     return solution
 
 
-def improveSolution(problem, dependencies, solution):
+def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
     (state, cost) = solution
 
     new_solutions = []
@@ -221,19 +223,39 @@ def improveSolution(problem, dependencies, solution):
 
     if len(new_solutions) != 0:
         new_solutions.sort(key=lambda x: x[1])
-        return new_solutions[0]
 
+        # checking feasiblity based on tabu list
+        for sol in new_solutions:
+            action = sol[2]
+            if action not in tabuList:
+
+                # add action to tabu list
+                tabuList.append((action, MAX_MEM_DEPTH))
+                # returining solution and its cost
+                return (sol[0], sol[1])
+            else:
+                if DEBUG:
+                    print('action:', (action), ' is tabu')
     else:
         return (state, cost)
 
 
 def updateTabuList(tabuList):
-    for action in tabuList:
-        print("action: ", action)
+    if len(tabuList) > TABU_LIST_SIZE:
+        del tabuList[0]
 
+    for i in range(len(tabuList)):
+
+        # updating all actions duration
+        tabuList[i][1] -=1
+        
+        # aspiration condition
+        if tabuList[i][1] == 0:
+            del tabuList[i]
+        
 
 def TabuSearch(problem, initialStart, costFunction, improveSolution,
-               updateTabuList, maxsteps=1000, debug=True):
+               updateTabuList, maxsteps=1000, TABU_LIST_SIZE=10, MAX_MEM_DEPTH=10, debug=True):
 
     tabuList = []
     history = []
@@ -247,10 +269,10 @@ def TabuSearch(problem, initialStart, costFunction, improveSolution,
 
         # improving the best solution
         (bestSolution) = improveSolution(problem, dependencies,
-                                         bestSolution, tabuList)
+                                         bestSolution, tabuList, MAX_MEM_DEPTH)
 
         # updating tabu list
-        updateTabuList(tabuList)
+        updateTabuList(tabuList, TABU_LIST_SIZE)
 
         # updating search history
         history.append(bestSolution)
@@ -341,11 +363,17 @@ if __name__ == '__main__':
 
     answers = []
 
+    # initialing tabu list size
+    TABU_LIST_SIZE = int(problem.dimension/8)
+    MAX_MEM_DEPTH = int(problem.dimension/8)
+
     for i in range(2):
         start = time.time()
 
         (state, cost), history = TabuSearch(problem, initialStart, costFunction,
-                                            improveSolution, updateTabuList, NUM_ITERATIONS, DEBUG)
+                                            improveSolution, updateTabuList,
+                                            NUM_ITERATIONS, TABU_LIST_SIZE,
+                                            MAX_MEM_DEPTH, DEBUG)
 
         print('variance of global optimal history for run(:', i, ')',
               math.sqrt(np.var(history)))
