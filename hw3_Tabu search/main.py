@@ -138,8 +138,11 @@ def bpp3exchange(problem, deps, solution):
             sol = leftPath + sol
             sol = rightPath + sol
             sol = solution[:dimension - len(sol)] + sol
-            solutions.append((sol, costFunction(problem, sol),
-                              rightPath, leftPath))
+            
+            # creating action for saving in tabu list
+            action = (solution[h], solution[i], solution[j])
+
+            solutions.append((sol, costFunction(problem, sol), action))
 
     solutions.sort(key=lambda x: x[1])
     if len(solutions) != 0:
@@ -227,7 +230,9 @@ def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
         # checking feasiblity based on tabu list
         for sol in new_solutions:
             action = sol[2]
-            if action not in tabuList:
+            tabuActions = [x[0] for x in tabuList]
+
+            if action not in tabuActions:
 
                 # add action to tabu list
                 tabuList.append((action, MAX_MEM_DEPTH))
@@ -236,23 +241,25 @@ def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
             else:
                 if DEBUG:
                     print('action:', (action), ' is tabu')
+        
+        # if all actions was tabu return previous solution
+        return (state, cost)
     else:
         return (state, cost)
 
 
-def updateTabuList(tabuList):
+def updateTabuList(tabuList, TABU_LIST_SIZE):
     if len(tabuList) > TABU_LIST_SIZE:
         del tabuList[0]
 
-    for i in range(len(tabuList)):
+    # updating all actions duration
+    tabuList = [(x[0], x[1]-1) for x in tabuList]
 
-        # updating all actions duration
-        tabuList[i][1] -=1
-        
-        # aspiration condition
-        if tabuList[i][1] == 0:
-            del tabuList[i]
-        
+    # aspiration condition
+    tabuList = [x for x in tabuList if x[1] != 0]
+
+    return tabuList
+
 
 def TabuSearch(problem, initialStart, costFunction, improveSolution,
                updateTabuList, maxsteps=1000, TABU_LIST_SIZE=10, MAX_MEM_DEPTH=10, debug=True):
@@ -272,13 +279,13 @@ def TabuSearch(problem, initialStart, costFunction, improveSolution,
                                          bestSolution, tabuList, MAX_MEM_DEPTH)
 
         # updating tabu list
-        updateTabuList(tabuList, TABU_LIST_SIZE)
+        tabuList = updateTabuList(tabuList, TABU_LIST_SIZE)
 
         # updating search history
-        history.append(bestSolution)
+        history.append(bestSolution[1])
 
-        if DEBUG:
-            print('\nstep:', step, '\t bestSolution:', bestSolution)
+        # if DEBUG:
+        #     print('\nstep:', step, '\t bestSolution:', bestSolution)
 
     return bestSolution, history
 
@@ -292,12 +299,12 @@ def plotResult(costs):
     plt.show()
 
 
-def plotResultPerALPHA(alphas, costs):
+def plotResultPerTabuSize(tabuSizes, costs):
 
-    print("alphas:", alphas, "costs:", costs)
-    plt.plot(alphas, costs, '-', color="gray",
+    print("tabuSizes:", tabuSizes, "costs:", costs)
+    plt.plot(tabuSizes, costs, '-', color="gray",
              label='algorithm progress', linewidth=1.5)
-    plt.xlabel('AlPHA')
+    plt.xlabel('Tabu size')
     plt.ylabel('average cost')
     plt.show()
 
@@ -355,17 +362,17 @@ if __name__ == '__main__':
     #     for filename in filenames:
     #         file = os.path.join(root, filename)
     #         problem = tsplib95.load_problem(str(file))
-    problem = tsplib95.load_problem("instances/E/br17.1.sop")
+    problem = tsplib95.load_problem("instances/E/ESC98.sop")
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
-    print("\ninstance:", problem.name, "ALPHA:", ALPHA, "\n")
-
     answers = []
 
     # initialing tabu list size
-    TABU_LIST_SIZE = int(problem.dimension/8)
-    MAX_MEM_DEPTH = int(problem.dimension/8)
+    TABU_LIST_SIZE = int(problem.dimension/4)
+    MAX_MEM_DEPTH = int(problem.dimension/4)
+
+    print("\ninstance:", problem.name, "TABU_LIST_SIZE:", TABU_LIST_SIZE, "\n")
 
     for i in range(2):
         start = time.time()
