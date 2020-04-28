@@ -337,7 +337,7 @@ def plotResultPerX(x, costs):
     print("tabuSizes:", x, "costs:", costs)
     plt.plot(x, costs, '-', color="gray",
              label='algorithm progress', linewidth=1.5)
-    plt.xlabel('Tabu size')
+    plt.xlabel('Tabu list size as coefficient of n')
     plt.ylabel('average cost')
     plt.show()
 
@@ -397,21 +397,20 @@ if __name__ == '__main__':
     #     for filename in filenames:
     #         file = os.path.join(root, filename)
     #         problem = tsplib95.load_problem(str(file))
-    problem = tsplib95.load_problem("instances/E/ESC78.sop")
+    problem = tsplib95.load_problem("instances/M/R.300.1000.60.sop")
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
     answers = []
 
-    cofs = [14, 12, 10, 8, 6, 4, 2, 1, 1.2]
+    cofs = [16, 14, 12, 10, 8, 6, 4, 2, 1, 0.2]
     avgs = []
 
     for c in cofs:
-        print('cof:',c)
-        
+
         # initialing tabu list size
         TABU_LIST_SIZE = int(problem.dimension/c)
-        MAX_MEM_DEPTH = int(problem.dimension/c)
+        MAX_MEM_DEPTH = int(problem.dimension/4)
 
         n = problem.dimension
 
@@ -449,4 +448,4 @@ if __name__ == '__main__':
             writeResultToExel(filename, answers, myRow)
             myRow += 1
 
-    plotResultPerX(cofs,avgs)
+    plotResultPerX(cofs, avgs)
