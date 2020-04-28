@@ -12,11 +12,14 @@ import statistics
 import numpy as np
 
 NUM_ITERATIONS = 500
+LONG_TERM = "long term"
+SHORT_TERM = "short term"
+TABU_LIST_MODE = SHORT_TERM
 DEBUG = False
 graph = None
 EXEl_WRITE = False
 dependencies = []
-INIT_HEURISTIC = False
+INIT_HEURISTIC = True
 
 
 class Edge(object):
@@ -65,6 +68,8 @@ def fpp3exchange(problem, deps, solution):
 
     solutions = []
     for it in range(int(dimension/2)):
+
+        # h < dimension-2
         h = randrange(0, dimension-3)
         i = h + 1
         leftPath = []
@@ -138,7 +143,7 @@ def bpp3exchange(problem, deps, solution):
             sol = leftPath + sol
             sol = rightPath + sol
             sol = solution[:dimension - len(sol)] + sol
-            
+
             # creating action for saving in tabu list
             action = (solution[h], solution[i], solution[j])
 
@@ -212,7 +217,8 @@ def initialStart(graph, deps):
     return solution
 
 
-def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
+def improveSolution(problem, dependencies, solution, tabuList,
+                    MAX_MEM_DEPTH, MAX_ACTION_NUM):
     (state, cost) = solution
 
     new_solutions = []
@@ -227,21 +233,45 @@ def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
     if len(new_solutions) != 0:
         new_solutions.sort(key=lambda x: x[1])
 
+        tabuActions = [x[0] for x in tabuList]
+
+        if len(tabuList) != 0:
+            minFrequentActions = min(tabuList, key=lambda ac: ac[1])
+        else:
+            minFrequentActions = []
+
+        # print('list size:', len(tabuList))
         # checking feasiblity based on tabu list
         for sol in new_solutions:
             action = sol[2]
-            tabuActions = [x[0] for x in tabuList]
 
+            # this part is common between short term and logn term
             if action not in tabuActions:
-
                 # add action to tabu list
                 tabuList.append((action, MAX_MEM_DEPTH))
+
                 # returining solution and its cost
                 return (sol[0], sol[1])
-            else:
-                if DEBUG:
-                    print('action:', (action), ' is tabu')
-        
+
+            # else:
+                # print('\nsolution:',solution)
+                # print('sol:',sol)
+
+                # for long memory term in term of all action visited,
+                #  also check if action is min freqent action
+            if TABU_LIST_MODE == LONG_TERM and \
+                len(tabuActions) == MAX_ACTION_NUM \
+                    and action in minFrequentActions:
+
+                # print('all actions seen before')
+
+                # update occurrence of action
+                i = tabuActions.index(action)
+                tabuList[i] = (tabuList[i][0], tabuList[i][1]+1)
+
+                # returining solution and its cost
+                return (sol[0], sol[1])
+
         # if all actions was tabu return previous solution
         return (state, cost)
     else:
@@ -249,20 +279,23 @@ def improveSolution(problem, dependencies, solution, tabuList, MAX_MEM_DEPTH):
 
 
 def updateTabuList(tabuList, TABU_LIST_SIZE):
-    if len(tabuList) > TABU_LIST_SIZE:
-        del tabuList[0]
 
-    # updating all actions duration
-    tabuList = [(x[0], x[1]-1) for x in tabuList]
+    if TABU_LIST_MODE == SHORT_TERM:
 
-    # aspiration condition
-    tabuList = [x for x in tabuList if x[1] != 0]
+        if len(tabuList) > TABU_LIST_SIZE:
+            del tabuList[0]
+
+        # updating all actions duration
+        tabuList = [(x[0], x[1]-1) for x in tabuList]
+
+        # aspiration condition
+        tabuList = [x for x in tabuList if x[1] != 0]
 
     return tabuList
 
 
-def TabuSearch(problem, initialStart, costFunction, improveSolution,
-               updateTabuList, maxsteps=1000, TABU_LIST_SIZE=10, MAX_MEM_DEPTH=10, debug=True):
+def TabuSearch(problem, initialStart, costFunction, improveSolution, updateTabuList, maxsteps=1000,
+               TABU_LIST_SIZE=10, MAX_MEM_DEPTH=10, MAX_ACTION_NUM=100, debug=True):
 
     tabuList = []
     history = []
@@ -276,7 +309,7 @@ def TabuSearch(problem, initialStart, costFunction, improveSolution,
 
         # improving the best solution
         (bestSolution) = improveSolution(problem, dependencies,
-                                         bestSolution, tabuList, MAX_MEM_DEPTH)
+                                         bestSolution, tabuList, MAX_MEM_DEPTH, MAX_ACTION_NUM)
 
         # updating tabu list
         tabuList = updateTabuList(tabuList, TABU_LIST_SIZE)
@@ -299,10 +332,10 @@ def plotResult(costs):
     plt.show()
 
 
-def plotResultPerTabuSize(tabuSizes, costs):
+def plotResultPerX(x, costs):
 
-    print("tabuSizes:", tabuSizes, "costs:", costs)
-    plt.plot(tabuSizes, costs, '-', color="gray",
+    print("tabuSizes:", x, "costs:", costs)
+    plt.plot(x, costs, '-', color="gray",
              label='algorithm progress', linewidth=1.5)
     plt.xlabel('Tabu size')
     plt.ylabel('average cost')
@@ -331,12 +364,13 @@ def writeResultToExel(file_name, answers, myRow):
     minCost = min(answers, key=lambda t: t[1])[1]
     maxCost = max(answers, key=lambda t: t[1])[1]
     avgCost = sum(ans[1] for ans in answers)/len(answers)
+    costVariance = math.sqrt(np.var([ans[1]for ans in answers]))
 
     minTime = min(answers, key=lambda t: t[2])[2]
     maxTime = max(answers, key=lambda t: t[2])[2]
     avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
 
-    wbkName = 'res2.xlsx'
+    wbkName = 'Results.xlsx'
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
         myCol = 4
@@ -346,6 +380,7 @@ def writeResultToExel(file_name, answers, myRow):
         wks.cell(row=myRow, column=myCol).value = minCost
         wks.cell(row=myRow, column=myCol+1).value = avgCost
         wks.cell(row=myRow, column=myCol+2).value = maxCost
+        wks.cell(row=myRow, column=myCol+2).value = costVariance
 
         wks.cell(row=myRow, column=myCol+3).value = minTime
         wks.cell(row=myRow, column=myCol+4).value = avgTime
@@ -358,36 +393,60 @@ def writeResultToExel(file_name, answers, myRow):
 if __name__ == '__main__':
 
     myRow = 2
-    # for root, directories, filenames in os.walk("instances/H/"):
+    # for root, directories, filenames in os.walk("instances/"):
     #     for filename in filenames:
     #         file = os.path.join(root, filename)
     #         problem = tsplib95.load_problem(str(file))
-    problem = tsplib95.load_problem("instances/E/ESC98.sop")
+    problem = tsplib95.load_problem("instances/E/ESC78.sop")
 
     graph = Graph(problem)
     dependencies = calculateDependencies(problem)
     answers = []
 
-    # initialing tabu list size
-    TABU_LIST_SIZE = int(problem.dimension/4)
-    MAX_MEM_DEPTH = int(problem.dimension/4)
+    cofs = [14, 12, 10, 8, 6, 4, 2, 1, 1.2]
+    avgs = []
 
-    print("\ninstance:", problem.name, "TABU_LIST_SIZE:", TABU_LIST_SIZE, "\n")
+    for c in cofs:
+        print('cof:',c)
+        
+        # initialing tabu list size
+        TABU_LIST_SIZE = int(problem.dimension/c)
+        MAX_MEM_DEPTH = int(problem.dimension/c)
 
-    for i in range(2):
-        start = time.time()
+        n = problem.dimension
 
-        (state, cost), history = TabuSearch(problem, initialStart, costFunction,
-                                            improveSolution, updateTabuList,
-                                            NUM_ITERATIONS, TABU_LIST_SIZE,
-                                            MAX_MEM_DEPTH, DEBUG)
+        MAX_ACTION_NUM = 0
 
-        print('variance of global optimal history for run(:', i, ')',
-              math.sqrt(np.var(history)))
-        duration = str(time.time() - start)[0:6]
-        answers.append((state, cost, duration))
+        # for h in range(0, n-2):
+        #     for i in range(h, n-1):
+        #         for j in range(i, n):
+        #             MAX_ACTION_NUM += 1
 
-    printResult(answers)
-    if EXEl_WRITE:
-        writeResultToExel(filename, answers, myRow)
-        myRow += 1
+        # print('TABU_LIST_SIZE:',TABU_LIST_SIZE)
+        # print("MAX_ACTION_NUM: ", MAX_ACTION_NUM)
+
+        print("\ninstance:", problem.name,
+              "TABU_LIST_SIZE:", TABU_LIST_SIZE, "\n")
+
+        for i in range(20):
+            start = time.time()
+
+            (state, cost), history = TabuSearch(problem, initialStart, costFunction,
+                                                improveSolution, updateTabuList,
+                                                NUM_ITERATIONS, TABU_LIST_SIZE,
+                                                MAX_MEM_DEPTH, MAX_ACTION_NUM, DEBUG)
+
+            # print('variance of global optimal history for run(:', i, ')',
+            #       math.sqrt(np.var(history)))
+
+            duration = str(time.time() - start)[0:6]
+            answers.append((state, cost, duration))
+
+        avgs.append(sum(ans[1] for ans in answers)/len(answers))
+
+        # printResult(answers)
+        if EXEl_WRITE:
+            writeResultToExel(filename, answers, myRow)
+            myRow += 1
+
+    plotResultPerX(cofs,avgs)
