@@ -15,7 +15,7 @@ ALPHA = 0.02
 NUM_ITERATIONS = 500
 DEBUG = False
 graph = None
-EXEl_WRITE = True
+EXEl_WRITE = False
 dependencies = []
 
 
@@ -319,8 +319,8 @@ def writeResultToExel(file_name, answers, myRow):
 
 if __name__ == '__main__':
 
-    myRow = 50
-    for root, directories, filenames in os.walk("instances/M/"):
+    myRow = 2
+    for root, directories, filenames in os.walk("instances/"):
         for filename in filenames:
             file = os.path.join(root, filename)
             problem = tsplib95.load_problem(str(file))

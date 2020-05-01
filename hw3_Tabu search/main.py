@@ -369,38 +369,38 @@ def writeResultToExel(file_name, answers, myRow):
 if __name__ == '__main__':
 
     myRow = 2
-    # for root, directories, filenames in os.walk("instances/"):
-    #     for filename in filenames:
-    #         file = os.path.join(root, filename)
-    #         problem = tsplib95.load_problem(str(file))
-    problem = tsplib95.load_problem("instances/E/ESC78.sop")
+    for root, directories, filenames in os.walk("instances/"):
+        for filename in filenames:
+            file = os.path.join(root, filename)
+            problem = tsplib95.load_problem(str(file))
+    # problem = tsplib95.load_problem("instances/E/ESC78.sop")
 
-    graph = Graph(problem)
-    dependencies = calculateDependencies(problem)
-    answers = []
-    
-    # initialing tabu list size
-    TABU_LIST_SIZE = int(problem.dimension/14)
-    MAX_MEM_DEPTH = int(problem.dimension/16)
+            graph = Graph(problem)
+            dependencies = calculateDependencies(problem)
+            answers = []
 
-    n = problem.dimension
+            # initialing tabu list size
+            TABU_LIST_SIZE = int(problem.dimension/14)
+            MAX_MEM_DEPTH = int(problem.dimension/16)
 
-    print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
-        TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
+            n = problem.dimension
 
-    for i in range(10):
-        start = time.time()
+            print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
+                TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
 
-        (state, cost), history = TabuSearch(problem, initialStart, costFunction,
-                                            improveSolution, updateTabuList,
-                                            NUM_ITERATIONS, TABU_LIST_SIZE,
-                                            MAX_MEM_DEPTH, DEBUG)
+            for i in range(10):
+                start = time.time()
 
-        
-        duration = str(time.time() - start)[0:6]
-        answers.append((state, cost, duration))
+                (state, cost), history = TabuSearch(problem, initialStart, costFunction,
+                                                    improveSolution, updateTabuList,
+                                                    NUM_ITERATIONS, TABU_LIST_SIZE,
+                                                    MAX_MEM_DEPTH, DEBUG)
 
-    printResult(answers)
-    if EXEl_WRITE:
-        writeResultToExel(filename, answers, myRow)
-        myRow += 1
+                
+                duration = str(time.time() - start)[0:6]
+                answers.append((state, cost, duration))
+
+            printResult(answers)
+            if EXEl_WRITE:
+                writeResultToExel(filename, answers, myRow)
+                myRow += 1
