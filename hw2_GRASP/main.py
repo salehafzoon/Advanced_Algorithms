@@ -319,8 +319,8 @@ def writeResultToExel(file_name, answers, myRow):
 
 if __name__ == '__main__':
 
-    myRow = 2
-    for root, directories, filenames in os.walk("instances/"):
+    myRow = 50
+    for root, directories, filenames in os.walk("instances/M/"):
         for filename in filenames:
             file = os.path.join(root, filename)
             problem = tsplib95.load_problem(str(file))
@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
             answers = []
             
-            for i in range(10):
+            for i in range(5):
                 start = time.time()
 
                 (state, cost), history = GRASP(problem, constructGreadyRandSol,
