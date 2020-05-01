@@ -12,12 +12,9 @@ import statistics
 import numpy as np
 
 NUM_ITERATIONS = 500
-LONG_TERM = "long term"
-SHORT_TERM = "short term"
-TABU_LIST_MODE = SHORT_TERM
 DEBUG = False
 graph = None
-EXEl_WRITE = True
+EXEl_WRITE = False
 dependencies = []
 INIT_HEURISTIC = True
 
@@ -218,7 +215,7 @@ def initialStart(graph, deps):
 
 
 def improveSolution(problem, dependencies, solution, tabuList,
-                    MAX_MEM_DEPTH, MAX_ACTION_NUM):
+                    MAX_MEM_DEPTH):
     (state, cost) = solution
 
     new_solutions = []
@@ -240,12 +237,10 @@ def improveSolution(problem, dependencies, solution, tabuList,
         else:
             minFrequentActions = []
 
-        # print('list size:', len(tabuList))
         # checking feasiblity based on tabu list
         for sol in new_solutions:
             action = sol[2]
 
-            # this part is common between short term and logn term
             if action not in tabuActions:
                 # add action to tabu list
                 tabuList.append((action, MAX_MEM_DEPTH))
@@ -253,24 +248,6 @@ def improveSolution(problem, dependencies, solution, tabuList,
                 # returining solution and its cost
                 return (sol[0], sol[1])
 
-            # else:
-                # print('\nsolution:',solution)
-                # print('sol:',sol)
-
-                # for long memory term in term of all action visited,
-                #  also check if action is min freqent action
-            if TABU_LIST_MODE == LONG_TERM and \
-                len(tabuActions) == MAX_ACTION_NUM \
-                    and action in minFrequentActions:
-
-                # print('all actions seen before')
-
-                # update occurrence of action
-                i = tabuActions.index(action)
-                tabuList[i] = (tabuList[i][0], tabuList[i][1]+1)
-
-                # returining solution and its cost
-                return (sol[0], sol[1])
 
         # if all actions was tabu return previous solution
         return (state, cost)
@@ -280,16 +257,15 @@ def improveSolution(problem, dependencies, solution, tabuList,
 
 def updateTabuList(tabuList, TABU_LIST_SIZE):
 
-    if TABU_LIST_MODE == SHORT_TERM:
+    if len(tabuList) > TABU_LIST_SIZE:
+        del tabuList[0]
 
-        if len(tabuList) > TABU_LIST_SIZE:
-            del tabuList[0]
+    # updating all actions duration
+    tabuList = [(x[0], x[1]-1) for x in tabuList]
 
-        # updating all actions duration
-        tabuList = [(x[0], x[1]-1) for x in tabuList]
+    # aspiration condition
+    tabuList = [x for x in tabuList if x[1] != 0]
 
-        # aspiration condition
-        tabuList = [x for x in tabuList if x[1] != 0]
 
     return tabuList
 
@@ -309,7 +285,7 @@ def TabuSearch(problem, initialStart, costFunction, improveSolution, updateTabuL
 
         # improving the best solution
         (bestSolution) = improveSolution(problem, dependencies,
-                                         bestSolution, tabuList, MAX_MEM_DEPTH, MAX_ACTION_NUM)
+                                         bestSolution, tabuList, MAX_MEM_DEPTH)
 
         # updating tabu list
         tabuList = updateTabuList(tabuList, TABU_LIST_SIZE)
@@ -393,51 +369,38 @@ def writeResultToExel(file_name, answers, myRow):
 if __name__ == '__main__':
 
     myRow = 2
-    for root, directories, filenames in os.walk("instances/"):
-        for filename in filenames:
-            file = os.path.join(root, filename)
-            problem = tsplib95.load_problem(str(file))
-    # problem = tsplib95.load_problem("instances/M/R.300.1000.60.sop")
+    # for root, directories, filenames in os.walk("instances/"):
+    #     for filename in filenames:
+    #         file = os.path.join(root, filename)
+    #         problem = tsplib95.load_problem(str(file))
+    problem = tsplib95.load_problem("instances/E/ESC78.sop")
 
-            graph = Graph(problem)
-            dependencies = calculateDependencies(problem)
-            answers = []
+    graph = Graph(problem)
+    dependencies = calculateDependencies(problem)
+    answers = []
+    
+    # initialing tabu list size
+    TABU_LIST_SIZE = int(problem.dimension/14)
+    MAX_MEM_DEPTH = int(problem.dimension/16)
 
-            
-            # initialing tabu list size
-            TABU_LIST_SIZE = int(problem.dimension/14)
-            MAX_MEM_DEPTH = int(problem.dimension/16)
+    n = problem.dimension
 
-            n = problem.dimension
+    print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
+        TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
 
-            MAX_ACTION_NUM = 0
+    for i in range(10):
+        start = time.time()
 
-            # for h in range(0, n-2):
-            #     for i in range(h, n-1):
-            #         for j in range(i, n):
-            #             MAX_ACTION_NUM += 1
+        (state, cost), history = TabuSearch(problem, initialStart, costFunction,
+                                            improveSolution, updateTabuList,
+                                            NUM_ITERATIONS, TABU_LIST_SIZE,
+                                            MAX_MEM_DEPTH, DEBUG)
 
-            # print('TABU_LIST_SIZE:',TABU_LIST_SIZE)
-            # print("MAX_ACTION_NUM: ", MAX_ACTION_NUM)
+        
+        duration = str(time.time() - start)[0:6]
+        answers.append((state, cost, duration))
 
-            print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
-                TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
-
-            for i in range(10):
-                start = time.time()
-
-                (state, cost), history = TabuSearch(problem, initialStart, costFunction,
-                                                    improveSolution, updateTabuList,
-                                                    NUM_ITERATIONS, TABU_LIST_SIZE,
-                                                    MAX_MEM_DEPTH, MAX_ACTION_NUM, DEBUG)
-
-                # print('variance of global optimal history for run(:', i, ')',
-                #       math.sqrt(np.var(history)))
-
-                duration = str(time.time() - start)[0:6]
-                answers.append((state, cost, duration))
-
-            # printResult(answers)
-            if EXEl_WRITE:
-                writeResultToExel(filename, answers, myRow)
-                myRow += 1
+    printResult(answers)
+    if EXEl_WRITE:
+        writeResultToExel(filename, answers, myRow)
+        myRow += 1

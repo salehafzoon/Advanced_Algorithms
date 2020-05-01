@@ -6,6 +6,10 @@ import copy
 from random import randrange
 import matplotlib.pyplot as plt
 import time
+import numpy as np
+import openpyxl
+import os
+
 
 LINEAR = 'linear'
 LOG = 'logarithmic'
@@ -19,10 +23,10 @@ INIT_HEURISTIC = True
 NUM_ITERATIONS = 500
 DEBUG = False
 EPSILON = 1e-323
-problem = tsplib95.load_problem("instances/E/br17.1.sop")
 graph = None
 dependencies = []
 
+EXEl_WRITE = True
 
 class Edge(object):
 
@@ -32,9 +36,6 @@ class Edge(object):
 
     def __str__(self):
         return str(self.vertices) + "->" + str(self.weight)
-        # return str(self.weight)
-        # return str(self.vertices)
-
     def __repr__(self):
         return str(self)
 
@@ -240,10 +241,9 @@ def updateTemperature(step):
         return math.exp(-ALPHA * step+1)*START_T
 
 
-def annealing(random_start, cost_function, random_neighbour,
+def annealing(problem,random_start, cost_function, random_neighbour,
               acceptance, updateTemperature, maxsteps=1000, debug=True):
 
-    global problem
     global T
     state = random_start(graph, dependencies)
     cost = cost_function(problem, state)
@@ -267,6 +267,52 @@ def annealing(random_start, cost_function, random_neighbour,
     return new_state, new_cost, states, costs
 
 
+def printResult(answers):
+
+    minAns = min(answers, key=lambda t: t[1])
+    maxAns = max(answers, key=lambda t: t[1])
+    variance = round(math.sqrt(np.var([ans[1]for ans in answers])) , 3)
+
+    print("\nbest[0:10]=", minAns[0][0:10], "\tmin cost:", minAns[1])
+    print("worst[0:10]=", maxAns[0][0:10], "\tmax cost:",
+          max(answers, key=lambda t: t[1])[1])
+    print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
+    print("\nvariance of costs:", variance)
+
+    print("\nmin time:", min(answers, key=lambda t: t[2])[2])
+    print("avg time:", str(sum(float(ans[2])
+                               for ans in answers)/len(answers))[0:6])
+    print("max time:", max(answers, key=lambda t: t[2])[2])
+
+def writeResultToExel(file_name, answers, myRow):
+    minCost = min(answers, key=lambda t: t[1])[1]
+    maxCost = max(answers, key=lambda t: t[1])[1]
+    avgCost = sum(ans[1] for ans in answers)/len(answers)
+    costVariance = round(math.sqrt(np.var([ans[1]for ans in answers])) , 3)
+
+    minTime = min(answers, key=lambda t: t[2])[2]
+    maxTime = max(answers, key=lambda t: t[2])[2]
+    avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
+
+    wbkName = 'Results.xlsx'
+    wbk = openpyxl.load_workbook(wbkName)
+    for wks in wbk.worksheets:
+        myCol = 4
+
+        wks.cell(row=myRow, column=1).value = file_name
+
+        wks.cell(row=myRow, column=myCol).value = minCost
+        wks.cell(row=myRow, column=myCol+1).value = avgCost
+        wks.cell(row=myRow, column=myCol+2).value = maxCost
+        wks.cell(row=myRow, column=myCol+3).value = costVariance
+
+        wks.cell(row=myRow, column=myCol+4).value = minTime
+        wks.cell(row=myRow, column=myCol+5).value = avgTime
+        wks.cell(row=myRow, column=myCol+6).value = maxTime
+
+    wbk.save(wbkName)
+    wbk.close
+
 def plotResult(costs):
 
     plt.plot(list(range(len(costs))), costs, '-', color="blue",
@@ -276,31 +322,30 @@ def plotResult(costs):
 
 if __name__ == '__main__':
 
-    graph = Graph(problem)
-    dependencies = calculateDependencies(problem)
-    print("\ninstance:",problem.name,"\n")
+    myRow = 50
+    for root, directories, filenames in os.walk("instances/M"):
+        for filename in filenames:
+            file = os.path.join(root, filename)
+            problem = tsplib95.load_problem(str(file))
+    # problem = tsplib95.load_problem("instances/E/ESC78.sop")
 
-    answers = []
+            graph = Graph(problem)
+            dependencies = calculateDependencies(problem)
+            answers = []
 
-    for _ in range(10):
-        start = time.time()
+            print("\ninstance:", problem.name, "\tTEMP_MODE:",
+                TEMP_MODE, "\tALPHA:", ALPHA, "\n")
 
-        state, cost, states, costs = annealing(random_start, cost_function, get_neighbour,
-                                               acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
-        duration = str(time.time() - start)[0:6]
-        print("answer[0:20]=", state[0:20], "cost:",cost,
-              'founded in ', duration, 'seconds')
-        # plotResult(costs)
-        answers.append((state, cost, duration))
+            for _ in range(10):
+                start = time.time()
 
-    minAns = min(answers, key=lambda t: t[1])
-    maxAns = max(answers, key=lambda t: t[1])
+                state, cost, states, costs = annealing(problem,random_start, cost_function, get_neighbour,
+                                                        acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
+                
+                duration = str(time.time() - start)[0:6]
+                answers.append((state, cost, duration))
 
-    print("\nbest[0:20]=", minAns[0][0:20], "\tmin cost:", minAns[1])
-    print("worst[0:20]=", maxAns[0][0:20],"\tmax cost:", max(answers, key=lambda t: t[1])[1])
-    print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
-    
-    print("\nmin time:", min(answers, key=lambda t: t[2])[2])
-    print("avg time:", str(sum(float(ans[2])
-                               for ans in answers)/len(answers))[0:6])
-    print("max time:", max(answers, key=lambda t: t[2])[2])
+            printResult(answers)
+            if EXEl_WRITE:
+                writeResultToExel(filename, answers, myRow)
+                myRow += 1

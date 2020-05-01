@@ -15,7 +15,7 @@ ALPHA = 0.02
 NUM_ITERATIONS = 500
 DEBUG = False
 graph = None
-EXEl_WRITE = False
+EXEl_WRITE = True
 dependencies = []
 
 
@@ -291,12 +291,13 @@ def writeResultToExel(file_name, answers, myRow):
     minCost = min(answers, key=lambda t: t[1])[1]
     maxCost = max(answers, key=lambda t: t[1])[1]
     avgCost = sum(ans[1] for ans in answers)/len(answers)
+    variance = math.sqrt(np.var([ans[1] for ans in answers]))
 
     minTime = min(answers, key=lambda t: t[2])[2]
     maxTime = max(answers, key=lambda t: t[2])[2]
     avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
 
-    wbkName = 'res2.xlsx'
+    wbkName = 'Results.xlsx'
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
         myCol = 4
@@ -306,10 +307,11 @@ def writeResultToExel(file_name, answers, myRow):
         wks.cell(row=myRow, column=myCol).value = minCost
         wks.cell(row=myRow, column=myCol+1).value = avgCost
         wks.cell(row=myRow, column=myCol+2).value = maxCost
+        wks.cell(row=myRow, column=myCol+3).value = variance
 
-        wks.cell(row=myRow, column=myCol+3).value = minTime
-        wks.cell(row=myRow, column=myCol+4).value = avgTime
-        wks.cell(row=myRow, column=myCol+5).value = maxTime
+        wks.cell(row=myRow, column=myCol+4).value = minTime
+        wks.cell(row=myRow, column=myCol+5).value = avgTime
+        wks.cell(row=myRow, column=myCol+6).value = maxTime
 
     wbk.save(wbkName)
     wbk.close
@@ -318,7 +320,7 @@ def writeResultToExel(file_name, answers, myRow):
 if __name__ == '__main__':
 
     myRow = 2
-    for root, directories, filenames in os.walk("instances/H/"):
+    for root, directories, filenames in os.walk("instances/"):
         for filename in filenames:
             file = os.path.join(root, filename)
             problem = tsplib95.load_problem(str(file))
@@ -330,15 +332,13 @@ if __name__ == '__main__':
 
             answers = []
             
-            for i in range(2):
+            for i in range(10):
                 start = time.time()
 
                 (state, cost), history = GRASP(problem, constructGreadyRandSol,
                                                 costFunction, localSearch, NUM_ITERATIONS, DEBUG)
 
                 
-                print('variance of global optimal history for run(:',i,')',
-                math.sqrt(np.var(history)))
                 duration = str(time.time() - start)[0:6]
                 answers.append((state, cost, duration))
 
