@@ -1,4 +1,4 @@
-import tsplib95
+# import tsplib95
 from pprint import pprint
 import random as rn
 import math
@@ -11,7 +11,7 @@ import openpyxl
 import os
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 70
+POPULATION_SIZE = 5
 MAX_GENERATION = 200
 DEBUG = False
 
@@ -44,7 +44,7 @@ class Problem(object):
         self.clusters = []
 
     def __str__(self):
-        return str('dimention:', self.dimention)
+        return 'dimention:' + str(self.dimention)
 
     def __repr__(self):
         return str(self)
@@ -134,30 +134,82 @@ def loadInstance(file):
         # print(problem.clusters)
     return problem
 
-def initialPop(problem):
-    demands = []
-    for key in problem.clusters:
-        clust_demand = 0
-        for node in problem.clusters[key]:
-            clust_demand += node.demand
-        demands.append((key , clust_demand))
-    # print(demands)
 
+class Individual(object):
+
+    problem = None
+
+    def __init__(self, chromosome):
+        self.chromosome = chromosome
+        self.fitness = self.callFitness()
+        self.feasible = True
+
+    @classmethod
+    def setProblem(cls, problem):
+        cls.problem = problem
+
+    def isFeasible(self):        
+        pass
+
+    @classmethod
+    def createChromosome(cls):
+        demands = []
+        solution = ''
+
+        for key in cls.problem.clusters:
+            clust_demand = 0
+            for node in cls.problem.clusters[key]:
+                clust_demand += node.demand
+            demands.append((key, clust_demand))
+        print(demands)
+
+        depoClust = demands.pop(0)[0]
+        amount = 0
+        for i in range(len(demands)):
+            (cluster, demand) = rn.choice(demands)
+            demands.remove((cluster, demand))
+
+            amount += demand
+            if(amount < cls.problem.capacity):
+                solution += str(cluster)
+            else:
+                solution += str(depoClust) + str(cluster)
+                amount = demand
+
+        print(solution)
+
+        return solution
+
+    def mutate(self):
+        pass
+
+    def crossOver(self,parent2):
+        pass
     
+    def callFitness(self):
+        fitness = 0
+        return fitness
+
+def initialPop(problem):
+    population = []
+    Individual.setProblem(problem)
+    
+    for _ in range(POPULATION_SIZE):
+        chrom = Individual.createChromosome()
+        indiv = Individual(chrom)
+        population.append(indiv)
+    return population
+
 
 def fitnessFunc(problem):
     pass
 
-def crossOver(problem):
-    pass
-
-def mutate(problem):
-    pass
 
 def GA(problem, initialPop, fitnessFunc, crossOver, mutate, maxGeneration=1000,
        mutation_rate=10, debug=True):
-    
+
     population = initialPop(problem)
+
 
 if __name__ == '__main__':
 
