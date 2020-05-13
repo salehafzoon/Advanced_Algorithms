@@ -40,11 +40,11 @@ class Problem(object):
         self.name = None
         self.dimention = None
         self.capacity = None
-        self.depot = 1
+        self.depotCluster = 1
         self.clusters = []
 
     def __str__(self):
-        return 'dimention:' + str(self.dimention)
+        return 'depot cluster: ' + str(self.depotCluster)
 
     def __repr__(self):
         return str(self)
@@ -123,6 +123,8 @@ def loadInstance(file):
         # CLUSTER_SECTION first index
         cludSecIndex = demSecIndex + problem.dimention + 1
 
+        problem.depotCluster = int(lines[cludSecIndex].split()[1])
+
         for i in range(problem.dimention):
             data = lines[cordSecIndex+i].split()
             node = Node(int(data[0]), int(data[1]), int(data[2]))
@@ -131,7 +133,8 @@ def loadInstance(file):
             node.cluster = int(lines[cludSecIndex+i].split()[1])
             problem.clusters.setdefault(node.cluster, []).append(node)
 
-        # print(problem.clusters)
+        print(problem)
+
     return problem
 
 
@@ -148,56 +151,94 @@ class Individual(object):
     def setProblem(cls, problem):
         cls.problem = problem
 
-    def isFeasible(self):        
+    def isFeasible(self):
         pass
 
     @classmethod
     def createChromosome(cls):
         demands = []
-        solution = ''
+        chromosome = ''
 
         for key in cls.problem.clusters:
             clust_demand = 0
             for node in cls.problem.clusters[key]:
                 clust_demand += node.demand
             demands.append((key, clust_demand))
-        print(demands)
+        # print(demands)
 
         depoClust = demands.pop(0)[0]
         amount = 0
-        for i in range(len(demands)):
+        for _ in range(len(demands)):
             (cluster, demand) = rn.choice(demands)
             demands.remove((cluster, demand))
 
             amount += demand
             if(amount < cls.problem.capacity):
-                solution += str(cluster)
+                chromosome += str(cluster)
             else:
-                solution += str(depoClust) + str(cluster)
+                chromosome += str(depoClust) + str(cluster)
                 amount = demand
 
-        print(solution)
-
-        return solution
+        # print(chromosome)
+        return chromosome
 
     def mutate(self):
+
+        globalRoutes = self.chromosome.split(str(problem.depotCluster))
+        # print(self.chromosome, globalRoutes)
+
+        r1 = rn.randrange(len(globalRoutes))
+        r2 = rn.randrange(len(globalRoutes))
+        while r1 == r2:
+            r2 = rn.randrange(len(globalRoutes))
+
+        n1 = rn.randrange(len(globalRoutes[r1]))
+        n2 = rn.randrange(len(globalRoutes[r2]))
+
+        temp = globalRoutes[r1][n1]
+
+        l1 = list(globalRoutes[r1])
+        l1[n1] = globalRoutes[r2][n2]
+
+        l2 = list(globalRoutes[r2])
+        l2[n2] = temp
+
+        globalRoutes[r1] = l1
+        globalRoutes[r2] = l2
+        
+        self.chromosome = ''
+        for r in globalRoutes:
+            self.chromosome += ''.join(r) + str(problem.depotCluster)
+        
+        self.chromosome = self.chromosome[:-1]
+        
+        print(self.chromosome)
+        self.callFitness()
+
+    def crossOver(self, parent2):
         pass
 
-    def crossOver(self,parent2):
-        pass
-    
     def callFitness(self):
         fitness = 0
         return fitness
 
+    def __str__(self):
+        return self.chromosome[:10] + ' ... ' +\
+            'fitness: ' + str(self.fitness)
+
+    def __repr__(self):
+        return str(self)
+
+
 def initialPop(problem):
     population = []
     Individual.setProblem(problem)
-    
+
     for _ in range(POPULATION_SIZE):
         chrom = Individual.createChromosome()
         indiv = Individual(chrom)
         population.append(indiv)
+
     return population
 
 
@@ -205,16 +246,23 @@ def fitnessFunc(problem):
     pass
 
 
-def GA(problem, initialPop, fitnessFunc, crossOver, mutate, maxGeneration=1000,
+def GA(problem, initialPop, maxGeneration=1000,
        mutation_rate=10, debug=True):
 
     population = initialPop(problem)
+
+    for indiv in population:
+        print(indiv)
+
+    population[0].mutate()
 
 
 if __name__ == '__main__':
 
     problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
-    initialPop(problem)
+    # initialPop(problem)
+
+    GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
     myRow = 50
     # for root, directories, filenames in os.walk("instances/M"):
