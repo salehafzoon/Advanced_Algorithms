@@ -6,12 +6,19 @@ import copy
 from random import randrange
 import matplotlib.pyplot as plt
 import time
-import numpy as np
 import openpyxl
 import os
+import tsp
+
+from tspy2 import TSP
+from tspy2.solvers import NN_solver
+from tspy2.solvers import TwoOpt_solver
+import numpy as np
+
+# t = tsp.tsp([(0,0), (0,1), (1,0), (1,1)])
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 5
+POPULATION_SIZE = 1
 MAX_GENERATION = 200
 DEBUG = False
 
@@ -27,8 +34,11 @@ class Node(object):
         self.demand = None
         self.cluster = None
 
+    def getCord(self):
+        return (self.x, self.y)
+
     def __str__(self):
-        return str(self.number)
+        return str(self.number) + str(self.getCord())
 
     def __repr__(self):
         return str(self)
@@ -133,7 +143,7 @@ def loadInstance(file):
             node.cluster = int(lines[cludSecIndex+i].split()[1])
             problem.clusters.setdefault(node.cluster, []).append(node)
 
-        print(problem)
+        # print(problem)
 
     return problem
 
@@ -141,6 +151,7 @@ def loadInstance(file):
 class Individual(object):
 
     problem = None
+    MList = None
 
     def __init__(self, chromosome):
         self.chromosome = chromosome
@@ -205,13 +216,13 @@ class Individual(object):
 
         globalRoutes[r1] = l1
         globalRoutes[r2] = l2
-        
+
         self.chromosome = ''
         for r in globalRoutes:
             self.chromosome += ''.join(r) + str(problem.depotCluster)
-        
+
         self.chromosome = self.chromosome[:-1]
-        
+
         print(self.chromosome)
         self.callFitness()
 
@@ -220,6 +231,32 @@ class Individual(object):
 
     def callFitness(self):
         fitness = 0
+        # print(self.chromosome)
+
+        # routes = self.chromosome.split(str(problem.depotCluster))
+
+        # depot = problem.clusters[problem.depotCluster][0]
+        # print(depot)
+
+        # for route in routes:
+        #     nodeList = [depot]
+
+        #     for c in list(route):
+        #         nodes = problem.clusters[int(c)]
+
+        #         for node in nodes:
+        #             nodeList.append(node)
+
+        #     mat = []
+        #     for i in range(len(nodes)):
+        #         row = []
+        #         for j in range(len(nodes)):
+        #             row.append( math.sqrt( ) )
+
+        #         # calculating tsp
+        #     fitness += tsp.tsp(cords)[0]
+
+        # print('fitness: ', fitness)
         return fitness
 
     def __str__(self):
@@ -229,15 +266,36 @@ class Individual(object):
     def __repr__(self):
         return str(self)
 
+    @classmethod
+    def calculateMs(cls):
+        clusterNum = len(cls.problem.clusters)
+        mList = np.zeros(shape=(clusterNum, clusterNum))
+        print('clusterNum:', clusterNum)
 
+        for i in range(clusterNum):
+            m = 0
+            for j in range(clusterNum):
+                if i != j:
+                    for n1 in cls.problem.clusters[i]:
+                        for n2 in cls.problem.clusters[j]:
+                            m += math.sqrt((n1.x - n2.x)**2 + (n1.y - n2.y)**2)
+
+                    mList[i][j] = m
+                else:
+                    mList[i][j] = 0
+
+        cls.MList = mList
+        
 def initialPop(problem):
     population = []
     Individual.setProblem(problem)
-
-    for _ in range(POPULATION_SIZE):
-        chrom = Individual.createChromosome()
-        indiv = Individual(chrom)
-        population.append(indiv)
+    Individual.calculateMs()
+    print(Individual.MList)
+    
+    # for _ in range(POPULATION_SIZE):
+    #     chrom = Individual.createChromosome()
+    #     indiv = Individual(chrom)
+    #     population.append(indiv)
 
     return population
 
@@ -251,20 +309,48 @@ def GA(problem, initialPop, maxGeneration=1000,
 
     population = initialPop(problem)
 
-    for indiv in population:
-        print(indiv)
+    # for indiv in population:
+    #     print(indiv)
 
-    population[0].mutate()
+    # population[0].mutate()
+    # population[0].crossOver(population[1])
 
 
 if __name__ == '__main__':
+
+    # start = time.time()
+
+    # mat = np.zeros(shape=(2,2))
+
+    # for i in range(2):
+    #     for j in range(2):
+    #         if i!=j:
+    #             mat[i][j] = 1
+    #         else:
+    #             mat[i][j] = 0
+
+    # print(mat)
+
+    # a = TSP()
+    # # N = 400
+    # a.read_mat(mat)
+
+    # sol = NN_solver()
+    # x = a.get_approx_solution(sol)
+    # print(x)
+
+    # # sol = TwoOpt_solver(list(a.tours.values())[0],500)
+    # # x = a.get_approx_solution(sol)
+
+    # # duration = str(time.time() - start)[0:6]
+    # # print('time:', duration)
 
     problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
     # initialPop(problem)
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
-    myRow = 50
+    # myRow = 50
     # for root, directories, filenames in os.walk("instances/M"):
     #     for filename in filenames:
     #         file = os.path.join(root, filename)
