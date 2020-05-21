@@ -15,10 +15,15 @@ from tspy2.solvers import NN_solver
 from tspy2.solvers import TwoOpt_solver
 import numpy as np
 
+ORDER_2POINT = 'ORDER_2POINT'
+ELITISM = "ELITISM"
+GENERATIONAL = "GENERATIONAL"
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 50
+POPULATION_SIZE = 2
 MAX_GENERATION = 200
+XOVER_METHOD = ORDER_2POINT
+SURVIVOR_SEL_TYPE = ELITISM
 DEBUG = True
 
 EXEl_WRITE = True
@@ -231,12 +236,51 @@ class Individual(object):
             self.chromosome += ''.join(r) + str(problem.depotCluster)
 
         self.chromosome = self.chromosome[:-1]
-        
+
         if(self.isFeasible()):
             self.fitness = self.callFitness()
 
     def crossOver(self, parent2):
-        pass
+        size = len(self.chromosome)
+        child1 = [-1 for i in range(size)]
+        child2 = [-1 for i in range(size)]
+        if XOVER_METHOD == ORDER_2POINT:
+            ind2 = ind1 = rn.randrange(size)
+            while ind2 == ind1:
+                ind2 = rn.randrange(size)
+
+            if ind2 < ind1:
+                ind1, ind2 = ind2, ind1
+
+            # transfer middle part to childs
+            for i in range(ind1, ind2):
+                child1[i] = self.chromosome[i]
+                child2[i] = parent2.chromosome[i]
+
+            
+            # fill childs chromosome
+            i1 = i2 = index = ind2
+            depotCount = self.chromosome.count(str(self.problem.depotCluster))
+            depot = str(self.problem.depotCluster)
+
+            while (-1 in child1) or (-1 in child2):
+                gen1 = self.chromosome[index % size]
+                gen2 = parent2.chromosome[index % size]
+                
+                if (gen2 == depot and child1.count(depot) < depotCount) or not(gen2 in child1):
+                    child1[i1 % size] = gen2
+                    i1 += 1
+
+                if (gen1 == depot and child2.count(depot) < depotCount) or not(gen1 in child2):
+                    child2[i2 % size] = gen1
+                    i2 += 1
+
+                index += 1
+
+        child1 = ''.join([str(e) for e in child1])
+        child2 = ''.join([str(e) for e in child2])
+
+        return child1, child2
 
     def callFitness(self):
         fitness = 0
@@ -301,9 +345,9 @@ class Individual(object):
             for i in range(len(nodes)-1):
                 n1 = nodeList[nodes[i]]
                 n2 = nodeList[nodes[i+1]]
-                
+
                 if n1.cluster != n2.cluster:
-                    cost -= self.MList[n1.cluster][n2.cluster]    
+                    cost -= self.MList[n1.cluster][n2.cluster]
 
             # print('cost:', cost)
             # print('----------------------------')
@@ -314,8 +358,9 @@ class Individual(object):
         return fitness
 
     def __str__(self):
-        return self.chromosome[:10] + ' ...\t' +\
-            'fitness: ' + str(self.fitness)
+        # return self.chromosome[:10] + ' ...\t' +\
+        #     'fitness: ' + str(self.fitness)
+        return self.chromosome
 
     def __repr__(self):
         return str(self)
@@ -324,7 +369,7 @@ class Individual(object):
     def calculateMs(cls):
         clusterNum = len(cls.problem.clusters)
         mList = np.zeros(shape=(clusterNum, clusterNum))
-        print('clusters:', clusterNum)
+        # print('clusters:', clusterNum)
 
         for i in range(clusterNum):
             m = 0
@@ -359,18 +404,22 @@ def GA(problem, initialPop, maxGeneration=1000,
 
     population = initialPop(problem)
 
-    for indiv in population:
+    # for indiv in population:
+        # print(indiv)s
         # print('before: ',population[0])
-        population[0].mutate()
+        # population[0].mutate()
         # if population[0].isFeasible:
         #     print('after: ',population[0])
-    
 
-    # population[0].crossOver(population[1])
+
+     
+    # population[0].chromosome = '341042'
+    # population[1].chromosome = '142043'
+    (child1, child2) = population[0].crossOver(population[1])
+    print(child1, child2)
 
 
 if __name__ == '__main__':
-
 
     problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
 
