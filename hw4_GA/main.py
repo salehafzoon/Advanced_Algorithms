@@ -359,32 +359,6 @@ def GA(problem, initialPop, maxGeneration=1000,
 
 if __name__ == '__main__':
 
-    # start = time.time()
-
-    # mat = np.zeros(shape=(300,300))
-
-    # for i in range(300):
-    #     for j in range(300):
-    #         if i!=j:
-    #             mat[i][j] = 1
-    #         else:
-    #             mat[i][j] = 0
-
-    # # print(mat)
-
-    # a = TSP()
-    # # # # N = 400
-    # a.read_mat(mat)
-
-    # sol = NN_solver()
-    # x = a.get_approx_solution(sol)
-    # print(x)
-
-    # # # sol = TwoOpt_solver(list(a.tours.values())[0],500)
-    # # # x = a.get_approx_solution(sol)
-
-    # duration = str(time.time() - start)[0:6]
-    # print('time:', duration)
 
     problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
 
