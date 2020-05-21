@@ -233,30 +233,75 @@ class Individual(object):
         fitness = 0
         # print(self.chromosome)
 
-        # routes = self.chromosome.split(str(problem.depotCluster))
+        routes = self.chromosome.split(str(problem.depotCluster))
 
-        # depot = problem.clusters[problem.depotCluster][0]
-        # print(depot)
+        depot = problem.clusters[problem.depotCluster][0]
 
-        # for route in routes:
-        #     nodeList = [depot]
+        for route in routes:
+            nodeList = [depot]
 
-        #     for c in list(route):
-        #         nodes = problem.clusters[int(c)]
+            for c in list(route):
 
-        #         for node in nodes:
-        #             nodeList.append(node)
+                nodes = problem.clusters[int(c)]
+                # print('cluster ', c, ':', nodes)
 
-        #     mat = []
-        #     for i in range(len(nodes)):
-        #         row = []
-        #         for j in range(len(nodes)):
-        #             row.append( math.sqrt( ) )
+                for node in nodes:
+                    nodeList.append(node)
 
-        #         # calculating tsp
-        #     fitness += tsp.tsp(cords)[0]
+            # print(depot)
+            # print('all nodes:', nodeList)
 
-        # print('fitness: ', fitness)
+            # now we have all nodes of one route
+            # initial matrix of edges
+            size = len(nodeList)
+            mat = np.zeros(shape=(size, size))
+
+            for i in range(size):
+                for j in range(size):
+                    if i != j:
+                        n1 = nodeList[i]
+                        n2 = nodeList[j]
+                        distance = math.sqrt(
+                            (n1.x - n2.x)**2 + (n1.y - n2.y)**2)
+
+                        # nodes from the same cluster
+                        if n1.cluster == n2.cluster:
+                            mat[i][j] = distance
+
+                        # adding M to distance of nodes from different clusters
+                        else:
+                            M = self.MList[n1.cluster][n2.cluster]
+                            mat[i][j] = distance + M
+                    else:
+                        mat[i][j] = 0
+
+            # print(mat)
+
+            # now solving tsp of edges matrix
+            solver = TSP()
+            solver.read_mat(mat)
+
+            sol = NN_solver()
+            answer = solver.get_approx_solution(sol)
+
+            # print('answer:', answer)
+            cost = answer[0]
+            nodes = answer[1]
+
+            # decreasing total added Ms to answer
+            for i in range(len(nodes)-1):
+                n1 = nodeList[nodes[i]]
+                n2 = nodeList[nodes[i+1]]
+                
+                if n1.cluster != n2.cluster:
+                    cost -= self.MList[n1.cluster][n2.cluster]    
+
+            # print('cost:', cost)
+            # print('----------------------------')
+
+            fitness += cost
+
+        print('fitness: ', fitness)
         return fitness
 
     def __str__(self):
@@ -270,7 +315,7 @@ class Individual(object):
     def calculateMs(cls):
         clusterNum = len(cls.problem.clusters)
         mList = np.zeros(shape=(clusterNum, clusterNum))
-        print('clusterNum:', clusterNum)
+        print('clusters:', clusterNum)
 
         for i in range(clusterNum):
             m = 0
@@ -285,23 +330,19 @@ class Individual(object):
                     mList[i][j] = 0
 
         cls.MList = mList
-        
+
+
 def initialPop(problem):
     population = []
     Individual.setProblem(problem)
     Individual.calculateMs()
-    print(Individual.MList)
-    
-    # for _ in range(POPULATION_SIZE):
-    #     chrom = Individual.createChromosome()
-    #     indiv = Individual(chrom)
-    #     population.append(indiv)
+
+    for _ in range(POPULATION_SIZE):
+        chrom = Individual.createChromosome()
+        indiv = Individual(chrom)
+        population.append(indiv)
 
     return population
-
-
-def fitnessFunc(problem):
-    pass
 
 
 def GA(problem, initialPop, maxGeneration=1000,
@@ -320,33 +361,32 @@ if __name__ == '__main__':
 
     # start = time.time()
 
-    # mat = np.zeros(shape=(2,2))
+    # mat = np.zeros(shape=(300,300))
 
-    # for i in range(2):
-    #     for j in range(2):
+    # for i in range(300):
+    #     for j in range(300):
     #         if i!=j:
     #             mat[i][j] = 1
     #         else:
     #             mat[i][j] = 0
 
-    # print(mat)
+    # # print(mat)
 
     # a = TSP()
-    # # N = 400
+    # # # # N = 400
     # a.read_mat(mat)
 
     # sol = NN_solver()
     # x = a.get_approx_solution(sol)
     # print(x)
 
-    # # sol = TwoOpt_solver(list(a.tours.values())[0],500)
-    # # x = a.get_approx_solution(sol)
+    # # # sol = TwoOpt_solver(list(a.tours.values())[0],500)
+    # # # x = a.get_approx_solution(sol)
 
-    # # duration = str(time.time() - start)[0:6]
-    # # print('time:', duration)
+    # duration = str(time.time() - start)[0:6]
+    # print('time:', duration)
 
     problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
-    # initialPop(problem)
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 

@@ -62,9 +62,9 @@ class TSP:
         instance.
         """
         tour = solver.solve(self)
-        print('The cost is {}.'.format(get_cost(tour,self)))
+        # print('The cost is {}.'.format(get_cost(tour,self)))
         self.tours[solver.__class__.__name__] = tour
-        return tour
+        return (get_cost(tour,self),tour)
 
     def plot_solution(self,which):
         """ Plots a solution"""
