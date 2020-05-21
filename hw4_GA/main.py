@@ -15,12 +15,11 @@ from tspy2.solvers import NN_solver
 from tspy2.solvers import TwoOpt_solver
 import numpy as np
 
-# t = tsp.tsp([(0,0), (0,1), (1,0), (1,1)])
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 1
+POPULATION_SIZE = 50
 MAX_GENERATION = 200
-DEBUG = False
+DEBUG = True
 
 EXEl_WRITE = True
 
@@ -163,7 +162,17 @@ class Individual(object):
         cls.problem = problem
 
     def isFeasible(self):
-        pass
+        routes = self.chromosome.split(str(problem.depotCluster))
+        for route in routes:
+            routeDemand = 0
+            for c in list(route):
+                nodes = problem.clusters[int(c)]
+                for node in nodes:
+                    routeDemand += node.demand
+            if routeDemand > self.problem.capacity:
+                # print('not feasible')
+                return False
+        return True
 
     @classmethod
     def createChromosome(cls):
@@ -222,9 +231,9 @@ class Individual(object):
             self.chromosome += ''.join(r) + str(problem.depotCluster)
 
         self.chromosome = self.chromosome[:-1]
-
-        print(self.chromosome)
-        self.callFitness()
+        
+        if(self.isFeasible()):
+            self.fitness = self.callFitness()
 
     def crossOver(self, parent2):
         pass
@@ -301,11 +310,11 @@ class Individual(object):
 
             fitness += cost
 
-        print('fitness: ', fitness)
+        # print('fitness: ', fitness)
         return fitness
 
     def __str__(self):
-        return self.chromosome[:10] + ' ... ' +\
+        return self.chromosome[:10] + ' ...\t' +\
             'fitness: ' + str(self.fitness)
 
     def __repr__(self):
@@ -350,10 +359,13 @@ def GA(problem, initialPop, maxGeneration=1000,
 
     population = initialPop(problem)
 
-    # for indiv in population:
-    #     print(indiv)
+    for indiv in population:
+        # print('before: ',population[0])
+        population[0].mutate()
+        # if population[0].isFeasible:
+        #     print('after: ',population[0])
+    
 
-    # population[0].mutate()
     # population[0].crossOver(population[1])
 
 
