@@ -18,13 +18,21 @@ import numpy as np
 ORDER_2POINT = 'ORDER_2POINT'
 ELITISM = "ELITISM"
 GENERATIONAL = "GENERATIONAL"
+RANDOM = 'RANDOM'
+TOURNAMENT = 'TOURNAMENT'
+TOURNAMENT_SIZE = 5
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 2
-MAX_GENERATION = 200
+POPULATION_SIZE = 6
+MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
+SELECTION = RANDOM
 SURVIVOR_SEL_TYPE = ELITISM
 DEBUG = True
+
+generation = 1
+bests = []
+averages = []
 
 EXEl_WRITE = True
 
@@ -112,10 +120,14 @@ def writeResultToExel(file_name, answers, myRow):
     wbk.close
 
 
-def plotResult(costs):
+def plotResult(generation, bests, averages):
 
-    plt.plot(list(range(len(costs))), costs, '-', color="blue",
-             label='algorithm progress', linewidth=2)
+    plt.plot(list(range(generation)), bests, 'go-',
+             label='best of generations', linewidth=2)
+    plt.show()
+
+    plt.plot(list(range(generation)), averages, 'bo-',
+             label='avg of generations', linewidth=2)
     plt.show()
 
 
@@ -212,10 +224,16 @@ class Individual(object):
         globalRoutes = self.chromosome.split(str(problem.depotCluster))
         # print(self.chromosome, globalRoutes)
 
-        r1 = rn.randrange(len(globalRoutes))
-        r2 = rn.randrange(len(globalRoutes))
-        while r1 == r2:
+        while True:
+
+            r1 = rn.randrange(len(globalRoutes))
             r2 = rn.randrange(len(globalRoutes))
+
+            while r1 == r2:
+                r2 = rn.randrange(len(globalRoutes))
+
+            if len(globalRoutes[r1]) != 0 and len(globalRoutes[r2]) != 0:
+                break
 
         n1 = rn.randrange(len(globalRoutes[r1]))
         n2 = rn.randrange(len(globalRoutes[r2]))
@@ -237,9 +255,6 @@ class Individual(object):
 
         self.chromosome = self.chromosome[:-1]
 
-        if(self.isFeasible()):
-            self.fitness = self.callFitness()
-
     def crossOver(self, parent2):
         size = len(self.chromosome)
         child1 = [-1 for i in range(size)]
@@ -257,7 +272,6 @@ class Individual(object):
                 child1[i] = self.chromosome[i]
                 child2[i] = parent2.chromosome[i]
 
-            
             # fill childs chromosome
             i1 = i2 = index = ind2
             depotCount = self.chromosome.count(str(self.problem.depotCluster))
@@ -266,7 +280,7 @@ class Individual(object):
             while (-1 in child1) or (-1 in child2):
                 gen1 = self.chromosome[index % size]
                 gen2 = parent2.chromosome[index % size]
-                
+
                 if (gen2 == depot and child1.count(depot) < depotCount) or not(gen2 in child1):
                     child1[i1 % size] = gen2
                     i1 += 1
@@ -280,11 +294,13 @@ class Individual(object):
         child1 = ''.join([str(e) for e in child1])
         child2 = ''.join([str(e) for e in child2])
 
-        return child1, child2
+        return Individual(child1), Individual(child2)
 
     def callFitness(self):
+        if not self.isFeasible():
+            return -1
+
         fitness = 0
-        # print(self.chromosome)
 
         routes = self.chromosome.split(str(problem.depotCluster))
 
@@ -360,7 +376,7 @@ class Individual(object):
     def __str__(self):
         # return self.chromosome[:10] + ' ...\t' +\
         #     'fitness: ' + str(self.fitness)
-        return self.chromosome
+        return str(self.fitness) + ' , '+self.chromosome
 
     def __repr__(self):
         return str(self)
@@ -385,6 +401,16 @@ class Individual(object):
 
         cls.MList = mList
 
+    @classmethod
+    def parentSelection(cls, population):
+        parent1 = parent2 = None
+
+        if SELECTION == RANDOM:
+            parent1 = rn.choice(list(population))
+            parent2 = rn.choice(list(population))
+
+        return parent1, parent2
+
 
 def initialPop(problem):
     population = []
@@ -402,26 +428,55 @@ def initialPop(problem):
 def GA(problem, initialPop, maxGeneration=1000,
        mutation_rate=10, debug=True):
 
+    generation = 1
     population = initialPop(problem)
 
-    # for indiv in population:
-        # print(indiv)s
-        # print('before: ',population[0])
-        # population[0].mutate()
-        # if population[0].isFeasible:
-        #     print('after: ',population[0])
+    for _ in range(MAX_GENERATION):
+        population = sorted(population, key=lambda x: x.fitness)
+
+        best = population[0].fitness
+        avg = np.mean([p.fitness for p in population])
+        bests.append(best)
+        averages.append(avg)
+
+        if DEBUG:
+            print("generation:", generation, " best: ", best, "avg: ", avg)
+
+        new_generation = []
+        for _ in range(int(POPULATION_SIZE/2)):
+            (parent1, parent2) = Individual.parentSelection(population)
+
+            (child1, child2) = parent1.crossOver(parent2)
+
+            child1.mutate()
+            child2.mutate()
+
+            if child1.isFeasible():
+                child1.callFitness()
+                new_generation.append(child1)
+            else:
+                new_generation.append(parent1)
+
+            if child2.isFeasible():
+                child2.callFitness()
+                new_generation.append(child2)
+            else:
+                new_generation.append(parent2)
+
+        new_generation = sorted(
+            new_generation, reverse=True, key=lambda x: x.fitness)
 
 
-     
-    # population[0].chromosome = '341042'
-    # population[1].chromosome = '142043'
-    (child1, child2) = population[0].crossOver(population[1])
-    print(child1, child2)
+        population = new_generation
+        generation += 1
+
+    generation -= 1
+    return population[0]
 
 
 if __name__ == '__main__':
 
-    problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
+    problem = loadInstance("instances/Marc/e-n19-c5.ccvrp")
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
@@ -434,7 +489,7 @@ if __name__ == '__main__':
     #         for _ in range(10):
     #             # start = time.time()
 
-    #             pass
+    # solution = GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
     #             # duration = str(time.time() - start)[0:6]
     #             # answers.append((state, cost, duration))
