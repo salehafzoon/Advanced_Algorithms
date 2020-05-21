@@ -23,7 +23,7 @@ TOURNAMENT = 'TOURNAMENT'
 TOURNAMENT_SIZE = 5
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 6
+POPULATION_SIZE = 40
 MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
@@ -256,6 +256,8 @@ class Individual(object):
         self.chromosome = self.chromosome[:-1]
 
     def crossOver(self, parent2):
+        # print(self.chromosome , parent2.chromosome)
+        # print(len(self.chromosome),len(parent2.chromosome))
         size = len(self.chromosome)
         child1 = [-1 for i in range(size)]
         child2 = [-1 for i in range(size)]
@@ -279,6 +281,9 @@ class Individual(object):
 
             while (-1 in child1) or (-1 in child2):
                 gen1 = self.chromosome[index % size]
+                # print('index mod size:', index %
+                #       size, 'size:', size, 'chrom:', parent2.chromosome)
+
                 gen2 = parent2.chromosome[index % size]
 
                 if (gen2 == depot and child1.count(depot) < depotCount) or not(gen2 in child1):
@@ -406,8 +411,11 @@ class Individual(object):
         parent1 = parent2 = None
 
         if SELECTION == RANDOM:
-            parent1 = rn.choice(list(population))
-            parent2 = rn.choice(list(population))
+            while True:
+                parent1 = rn.choice(list(population))
+                parent2 = rn.choice(list(population))
+                if len(parent1.chromosome) == len(parent2.chromosome):
+                    break
 
         return parent1, parent2
 
@@ -420,6 +428,7 @@ def initialPop(problem):
     for _ in range(POPULATION_SIZE):
         chrom = Individual.createChromosome()
         indiv = Individual(chrom)
+        print(indiv)
         population.append(indiv)
 
     return population
@@ -448,8 +457,10 @@ def GA(problem, initialPop, maxGeneration=1000,
 
             (child1, child2) = parent1.crossOver(parent2)
 
-            child1.mutate()
-            child2.mutate()
+            if rn.random() < MUTATION_RATE:
+                child1.mutate()
+            if rn.random() < MUTATION_RATE:
+                child2.mutate()
 
             if child1.isFeasible():
                 child1.callFitness()
@@ -465,7 +476,6 @@ def GA(problem, initialPop, maxGeneration=1000,
 
         new_generation = sorted(
             new_generation, reverse=True, key=lambda x: x.fitness)
-
 
         population = new_generation
         generation += 1
