@@ -22,13 +22,13 @@ RANDOM = 'RANDOM'
 TOURNAMENT = 'TOURNAMENT'
 TOURNAMENT_SIZE = 5
 
-MUTATION_RATE = 1
-POPULATION_SIZE = 30
-MAX_GENERATION = 10
+MUTATION_RATE = 0.2
+POPULATION_SIZE = 4
+MAX_GENERATION = 5
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
 SURVIVOR_SEL_TYPE = ELITISM
-DEBUG = True
+DEBUG = False
 
 generation = 1
 bests = []
@@ -453,8 +453,8 @@ def initialPop(problem):
     return population
 
 
-def GA(problem, initialPop, maxGeneration=1000,
-       mutation_rate=10, debug=True):
+def GA(problem, initialPop, maxGeneration=100,
+       mutation_rate=0.2, debug=True):
 
     generation = 1
     population = initialPop(problem)
@@ -470,8 +470,8 @@ def GA(problem, initialPop, maxGeneration=1000,
         if DEBUG:
             print("generation:", generation, " best: ", best, "avg: ", avg)
 
-        new_generation = []
-        for _ in range(int(POPULATION_SIZE/2)):
+        new_generation = [population[0]]
+        for _ in range(int(POPULATION_SIZE/2)-1):
             (parent1, parent2) = Individual.parentSelection(population)
 
             (child1, child2) = parent1.crossOver(parent2)
@@ -497,10 +497,11 @@ def GA(problem, initialPop, maxGeneration=1000,
         new_generation = sorted(
             new_generation, reverse=True, key=lambda x: x.fitness)
 
-        population = new_generation
+        population = new_generation[:-1]
         generation += 1
 
     generation -= 1
+    population = sorted(population, key=lambda x: x.fitness)
     return population[0]
 
 
@@ -511,23 +512,18 @@ if __name__ == '__main__':
 
     # problem = loadInstance("instances/Marc/b-n29-c6.ccvrp")
 
-    GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
+    answers = []
 
-    # myRow = 50
-    # for root, directories, filenames in os.walk("instances/M"):
-    #     for filename in filenames:
-    #         file = os.path.join(root, filename)
-    #         problem = tsplib95.load_problem(str(file))
+    for _ in range(5):
+        start = time.time()
 
-    #         for _ in range(10):
-    #             # start = time.time()
+        
+        sol = GA(problem, initialPop, MAX_GENERATION,
+                 MUTATION_RATE, DEBUG)
 
-    # solution = GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
+        print(sol.chromosome[:10], ' fitness: ', sol.fitness)
 
-    #             # duration = str(time.time() - start)[0:6]
-    #             # answers.append((state, cost, duration))
+        duration = str(time.time() - start)[0:6]
+        answers.append((sol.chromosome, sol.fitness, duration))
 
-    #         # printResult(answers)
-    #         # if EXEl_WRITE:
-    #         #     writeResultToExel(filename, answers, myRow)
-    #         #     myRow += 1
+    printResult(answers)
