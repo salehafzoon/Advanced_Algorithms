@@ -23,8 +23,8 @@ TOURNAMENT = 'TOURNAMENT'
 TOURNAMENT_SIZE = 5
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 4
-MAX_GENERATION = 5
+POPULATION_SIZE = 50
+MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
 SURVIVOR_SEL_TYPE = ELITISM
@@ -88,6 +88,8 @@ def printResult(answers):
     print("avg time:", str(sum(float(ans[2])
                                for ans in answers)/len(answers))[0:6])
     print("max time:", max(answers, key=lambda t: t[2])[2])
+
+    print("\naverage vehicels:", sum(ans[3] for ans in answers)/len(answers))
 
 
 def writeResultToExel(file_name, answers, myRow):
@@ -508,22 +510,21 @@ def GA(problem, initialPop, maxGeneration=100,
 if __name__ == '__main__':
 
     problem = loadInstance(
-        "instances/GoldenWasilKellyAndChao_0.1/kelly02.ccvrp")
+        "instances/GoldenWasilKellyAndChao_0.25/kelly03.ccvrp")
 
-    # problem = loadInstance("instances/Marc/b-n29-c6.ccvrp")
-
+    print('name: ',problem.name , ' dimention: ',problem.dimention , ' capacity: ',problem.capacity)
     answers = []
 
-    for _ in range(5):
+    for _ in range(10):
         start = time.time()
 
-        
         sol = GA(problem, initialPop, MAX_GENERATION,
                  MUTATION_RATE, DEBUG)
 
-        print(sol.chromosome[:10], ' fitness: ', sol.fitness)
+        vehicels = sol.chromosome.count(str(problem.depotCluster)) - 1
 
         duration = str(time.time() - start)[0:6]
-        answers.append((sol.chromosome, sol.fitness, duration))
+        print('time: ',duration)
+        answers.append((sol.chromosome, sol.fitness, duration, vehicels))
 
     printResult(answers)
