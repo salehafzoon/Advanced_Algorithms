@@ -1,4 +1,3 @@
-# import tsplib95
 from pprint import pprint
 import random as rn
 import math
@@ -25,7 +24,7 @@ TOURNAMENT_SIZE = 5
 
 MUTATION_RATE = 0.4
 POPULATION_SIZE = 40
-MAX_GENERATION = 50
+MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
 SURVIVOR_SEL_TYPE = ELITISM
@@ -150,19 +149,19 @@ def loadInstance(file):
         # CLUSTER_SECTION first index
         cludSecIndex = demSecIndex + problem.dimention + 1
 
-        problem.depotCluster = int(lines[cludSecIndex].split()[1])
+        # Golden type instance . its cluster number start from 1
+        if problem.name == '':
+            x = -1
+        else:
+            x = 0
+
+        problem.depotCluster = int(lines[cludSecIndex].split()[1]) + x
 
         for i in range(problem.dimention):
             data = lines[cordSecIndex+i].split()
             node = Node(int(data[0]), float(data[1]), float(data[2]))
 
             node.demand = int(lines[demSecIndex+i].split()[1])
-
-            # Golden type instance . its cluster number start from 1
-            if problem.name == '':
-                x = -1
-            else:
-                x = 0
             node.cluster = int(lines[cludSecIndex+i].split()[1]) + x
             problem.clusters.setdefault(node.cluster, []).append(node)
 
@@ -178,18 +177,19 @@ class Individual(object):
 
     def __init__(self, chromosome):
         self.chromosome = chromosome
-        self.fitness = self.callFitness()
         self.feasible = True
-
+        self.fitness = self.callFitness()
+        
     @classmethod
     def setProblem(cls, problem):
         cls.problem = problem
 
     def isFeasible(self):
+        # print(self.chromosome)
         routes = self.chromosome.split(str(problem.depotCluster))
         for route in routes:
             routeDemand = 0
-            for c in list(route):
+            for c in list(route.split()):
                 nodes = problem.clusters[int(c)]
                 for node in nodes:
                     routeDemand += node.demand
@@ -217,10 +217,10 @@ class Individual(object):
             demands.remove((cluster, demand))
 
             amount += demand
-            if(amount < cls.problem.capacity):
-                chromosome += str(cluster)
+            if(amount <= cls.problem.capacity):
+                chromosome += str(cluster) + ' '
             else:
-                chromosome += str(depoClust) + str(cluster)
+                chromosome += str(depoClust) +' '+ str(cluster) + ' '
                 amount = demand
 
         # print(chromosome)
@@ -263,9 +263,9 @@ class Individual(object):
         self.chromosome = self.chromosome[:-1]
 
     def crossOver(self, parent2):
+        # print('xover start')
         # print(self.chromosome , parent2.chromosome)
-        # print(len(self.chromosome),len(parent2.chromosome))
-        size = len(self.chromosome)
+        size = len(self.chromosome.split())
         child1 = [-1 for i in range(size)]
         child2 = [-1 for i in range(size)]
         if XOVER_METHOD == ORDER_2POINT:
@@ -278,8 +278,8 @@ class Individual(object):
 
             # transfer middle part to childs
             for i in range(ind1, ind2):
-                child1[i] = self.chromosome[i]
-                child2[i] = parent2.chromosome[i]
+                child1[i] = self.chromosome.split()[i]
+                child2[i] = parent2.chromosome.split()[i]
 
             # fill childs chromosome
             i1 = i2 = index = ind2
@@ -287,11 +287,11 @@ class Individual(object):
             depot = str(self.problem.depotCluster)
 
             while (-1 in child1) or (-1 in child2):
-                gen1 = self.chromosome[index % size]
+                gen1 = self.chromosome.split()[index % size]
                 # print('index mod size:', index %
                 #       size, 'size:', size, 'chrom:', parent2.chromosome)
 
-                gen2 = parent2.chromosome[index % size]
+                gen2 = parent2.chromosome.split()[index % size]
 
                 if (gen2 == depot and child1.count(depot) < depotCount) or not(gen2 in child1):
                     child1[i1 % size] = gen2
@@ -303,12 +303,17 @@ class Individual(object):
 
                 index += 1
 
-        child1 = ''.join([str(e) for e in child1])
-        child2 = ''.join([str(e) for e in child2])
-
+        child1 = ' '.join([str(e) for e in child1])
+        child2 = ' '.join([str(e) for e in child2])
+        # print('xover stop')
+        # print('ch1:',child1)
+        # print('ch2:',child2)
+        
+          
         return Individual(child1), Individual(child2)
 
     def callFitness(self):
+        # print('call fitness start')
         if not self.isFeasible():
             return -1
 
@@ -321,7 +326,7 @@ class Individual(object):
         for route in routes:
             nodeList = [depot]
 
-            for c in list(route):
+            for c in list(route.split()):
 
                 nodes = problem.clusters[int(c)]
                 # print('cluster ', c, ':', nodes)
@@ -384,12 +389,14 @@ class Individual(object):
             fitness += cost
 
         # print('fitness: ', fitness)
+        
+        # print('call fitness end')
         return fitness
 
     def __str__(self):
         # return self.chromosome[:10] + ' ...\t' +\
         #     'fitness: ' + str(self.fitness)
-        return str(self.fitness) + ' , '+self.chromosome[1:10] + ' --- '
+        return str(round(self.fitness,3)) + ' , '+self.chromosome[0:20] + ' --- '
 
     def __repr__(self):
         return str(self)
@@ -470,10 +477,10 @@ def GA(problem, initialPop, maxGeneration=1000,
 
             (child1, child2) = parent1.crossOver(parent2)
 
-            if rn.random() < MUTATION_RATE:
-                child1.mutate()
-            if rn.random() < MUTATION_RATE:
-                child2.mutate()
+            # if rn.random() < MUTATION_RATE:
+            #     child1.mutate()
+            # if rn.random() < MUTATION_RATE:
+            #     child2.mutate()
 
             child1.callFitness()
             child2.callFitness()
@@ -500,10 +507,10 @@ def GA(problem, initialPop, maxGeneration=1000,
 
 if __name__ == '__main__':
 
-    # problem = loadInstance(
-    #     "instances/GoldenWasilKellyAndChao_1.0/kelly20.ccvrp")
+    problem = loadInstance(
+        "instances/GoldenWasilKellyAndChao_1.0/kelly20.ccvrp")
 
-    problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
+    # problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
