@@ -510,7 +510,7 @@ def GA(problem, initialPop, maxGeneration=100,
 if __name__ == '__main__':
 
     problem = loadInstance(
-        "instances/GoldenWasilKellyAndChao_0.25/kelly03.ccvrp")
+        "instances/GoldenWasilKellyAndChao_0.75/kelly06.ccvrp")
 
     print('name: ',problem.name , ' dimention: ',problem.dimention , ' capacity: ',problem.capacity)
     answers = []
