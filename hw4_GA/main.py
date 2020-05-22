@@ -14,6 +14,7 @@ from tspy2 import TSP
 from tspy2.solvers import NN_solver
 from tspy2.solvers import TwoOpt_solver
 import numpy as np
+from collections import defaultdict
 
 ORDER_2POINT = 'ORDER_2POINT'
 ELITISM = "ELITISM"
@@ -22,9 +23,9 @@ RANDOM = 'RANDOM'
 TOURNAMENT = 'TOURNAMENT'
 TOURNAMENT_SIZE = 5
 
-MUTATION_RATE = 0.2
+MUTATION_RATE = 0.4
 POPULATION_SIZE = 40
-MAX_GENERATION = 10
+MAX_GENERATION = 50
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
 SURVIVOR_SEL_TYPE = ELITISM
@@ -153,10 +154,16 @@ def loadInstance(file):
 
         for i in range(problem.dimention):
             data = lines[cordSecIndex+i].split()
-            node = Node(int(data[0]), int(data[1]), int(data[2]))
+            node = Node(int(data[0]), float(data[1]), float(data[2]))
 
             node.demand = int(lines[demSecIndex+i].split()[1])
-            node.cluster = int(lines[cludSecIndex+i].split()[1])
+
+            # Golden type instance . its cluster number start from 1
+            if problem.name == '':
+                x = -1
+            else:
+                x = 0
+            node.cluster = int(lines[cludSecIndex+i].split()[1]) + x
             problem.clusters.setdefault(node.cluster, []).append(node)
 
         # print(problem)
@@ -381,7 +388,7 @@ class Individual(object):
     def __str__(self):
         # return self.chromosome[:10] + ' ...\t' +\
         #     'fitness: ' + str(self.fitness)
-        return str(self.fitness) + ' , '+self.chromosome
+        return str(self.fitness) + ' , '+self.chromosome[1:10] + ' --- '
 
     def __repr__(self):
         return str(self)
@@ -455,6 +462,11 @@ def GA(problem, initialPop, maxGeneration=1000,
         for _ in range(int(POPULATION_SIZE/2)):
             (parent1, parent2) = Individual.parentSelection(population)
 
+            if parent1.fitness == -1:
+                print('p1 not feasible:', parent1)
+            if parent2.fitness == -1:
+                print('p2 not feasible:', parent1)
+
             (child1, child2) = parent1.crossOver(parent2)
 
             if rn.random() < MUTATION_RATE:
@@ -462,14 +474,15 @@ def GA(problem, initialPop, maxGeneration=1000,
             if rn.random() < MUTATION_RATE:
                 child2.mutate()
 
-            if child1.isFeasible():
-                child1.callFitness()
+            child1.callFitness()
+            child2.callFitness()
+
+            if child1.fitness != -1:
                 new_generation.append(child1)
             else:
                 new_generation.append(parent1)
 
-            if child2.isFeasible():
-                child2.callFitness()
+            if child2.fitness != -1:
                 new_generation.append(child2)
             else:
                 new_generation.append(parent2)
@@ -486,7 +499,9 @@ def GA(problem, initialPop, maxGeneration=1000,
 
 if __name__ == '__main__':
 
-    problem = loadInstance("instances/Marc/e-n19-c5.ccvrp")
+    # problem = loadInstance(
+    #     "instances/GoldenWasilKellyAndChao_1.0/kelly20.ccvrp")
+    problem = loadInstance("instances/Marc/a-n19-c5.ccvrp")
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
