@@ -22,8 +22,8 @@ RANDOM = 'RANDOM'
 TOURNAMENT = 'TOURNAMENT'
 TOURNAMENT_SIZE = 5
 
-MUTATION_RATE = 0.4
-POPULATION_SIZE = 40
+MUTATION_RATE = 1
+POPULATION_SIZE = 30
 MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
@@ -179,7 +179,7 @@ class Individual(object):
         self.chromosome = chromosome
         self.feasible = True
         self.fitness = self.callFitness()
-        
+
     @classmethod
     def setProblem(cls, problem):
         cls.problem = problem
@@ -220,7 +220,7 @@ class Individual(object):
             if(amount <= cls.problem.capacity):
                 chromosome += str(cluster) + ' '
             else:
-                chromosome += str(depoClust) +' '+ str(cluster) + ' '
+                chromosome += str(depoClust) + ' ' + str(cluster) + ' '
                 amount = demand
 
         # print(chromosome)
@@ -229,7 +229,7 @@ class Individual(object):
     def mutate(self):
 
         globalRoutes = self.chromosome.split(str(problem.depotCluster))
-        # print(self.chromosome, globalRoutes)
+        # print('mut start' , self.chromosome ,globalRoutes)
 
         while True:
 
@@ -239,28 +239,33 @@ class Individual(object):
             while r1 == r2:
                 r2 = rn.randrange(len(globalRoutes))
 
-            if len(globalRoutes[r1]) != 0 and len(globalRoutes[r2]) != 0:
+            if len(globalRoutes[r1].split()) != 0 and len(globalRoutes[r2].split()) != 0:
                 break
 
-        n1 = rn.randrange(len(globalRoutes[r1]))
-        n2 = rn.randrange(len(globalRoutes[r2]))
+        n1 = rn.randrange(len(globalRoutes[r1].split()))
+        n2 = rn.randrange(len(globalRoutes[r2].split()))
 
-        temp = globalRoutes[r1][n1]
+        temp = globalRoutes[r1].split()[n1]
 
-        l1 = list(globalRoutes[r1])
-        l1[n1] = globalRoutes[r2][n2]
+        l1 = list(globalRoutes[r1].split())
+        l1[n1] = globalRoutes[r2].split()[n2]
 
-        l2 = list(globalRoutes[r2])
+        l2 = list(globalRoutes[r2].split())
         l2[n2] = temp
 
-        globalRoutes[r1] = l1
-        globalRoutes[r2] = l2
+        globalRoutes[r1] = ' '.join(l1)
+        globalRoutes[r2] = ' '.join(l2)
 
         self.chromosome = ''
         for r in globalRoutes:
-            self.chromosome += ''.join(r) + str(problem.depotCluster)
+            for c in r.split():
+                self.chromosome += c + ' '
+            self.chromosome += str(problem.depotCluster) + ' '
+            # self.chromosome += ' '.join(c) + ' ' + str(problem.depotCluster)
 
-        self.chromosome = self.chromosome[:-1]
+        temp = self.chromosome.split()[:-1]
+        self.chromosome = ' '.join([e for e in temp])
+        # print('mut stop')
 
     def crossOver(self, parent2):
         # print('xover start')
@@ -308,8 +313,7 @@ class Individual(object):
         # print('xover stop')
         # print('ch1:',child1)
         # print('ch2:',child2)
-        
-          
+
         return Individual(child1), Individual(child2)
 
     def callFitness(self):
@@ -389,14 +393,14 @@ class Individual(object):
             fitness += cost
 
         # print('fitness: ', fitness)
-        
+
         # print('call fitness end')
         return fitness
 
     def __str__(self):
         # return self.chromosome[:10] + ' ...\t' +\
         #     'fitness: ' + str(self.fitness)
-        return str(round(self.fitness,3)) + ' , '+self.chromosome[0:20] + ' --- '
+        return str(round(self.fitness, 3)) + ' , '+self.chromosome[0:20] + ' --- '
 
     def __repr__(self):
         return str(self)
@@ -443,7 +447,7 @@ def initialPop(problem):
     for _ in range(POPULATION_SIZE):
         chrom = Individual.createChromosome()
         indiv = Individual(chrom)
-        print(indiv)
+        # print(indiv)
         population.append(indiv)
 
     return population
@@ -470,17 +474,12 @@ def GA(problem, initialPop, maxGeneration=1000,
         for _ in range(int(POPULATION_SIZE/2)):
             (parent1, parent2) = Individual.parentSelection(population)
 
-            if parent1.fitness == -1:
-                print('p1 not feasible:', parent1)
-            if parent2.fitness == -1:
-                print('p2 not feasible:', parent1)
-
             (child1, child2) = parent1.crossOver(parent2)
 
-            # if rn.random() < MUTATION_RATE:
-            #     child1.mutate()
-            # if rn.random() < MUTATION_RATE:
-            #     child2.mutate()
+            if rn.random() < MUTATION_RATE and child1.isFeasible():
+                child1.mutate()
+            if rn.random() < MUTATION_RATE and child1.isFeasible():
+                child2.mutate()
 
             child1.callFitness()
             child2.callFitness()
@@ -508,9 +507,9 @@ def GA(problem, initialPop, maxGeneration=1000,
 if __name__ == '__main__':
 
     problem = loadInstance(
-        "instances/GoldenWasilKellyAndChao_1.0/kelly20.ccvrp")
+        "instances/GoldenWasilKellyAndChao_0.1/kelly02.ccvrp")
 
-    # problem = loadInstance("instances/Marc/a-n14-c4.ccvrp")
+    # problem = loadInstance("instances/Marc/b-n29-c6.ccvrp")
 
     GA(problem, initialPop, MAX_GENERATION, MUTATION_RATE, DEBUG)
 
