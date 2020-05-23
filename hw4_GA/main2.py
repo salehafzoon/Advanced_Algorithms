@@ -19,11 +19,9 @@ ORDER_2POINT = 'ORDER_2POINT'
 ELITISM = "ELITISM"
 GENERATIONAL = "GENERATIONAL"
 RANDOM = 'RANDOM'
-TOURNAMENT = 'TOURNAMENT'
-TOURNAMENT_SIZE = 5
 
 MUTATION_RATE = 0.2
-POPULATION_SIZE = 50
+POPULATION_SIZE = 40
 MAX_GENERATION = 10
 XOVER_METHOD = ORDER_2POINT
 SELECTION = RANDOM
@@ -34,6 +32,7 @@ generation = 1
 bests = []
 averages = []
 
+TIMER_MODE = False
 EXEl_WRITE = True
 
 
@@ -79,44 +78,51 @@ def printResult(answers):
     variance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
 
     print("\nbest[0:10]=", minAns[0][0:10], "\tmin cost:", minAns[1])
-    print("worst[0:10]=", maxAns[0][0:10], "\tmax cost:",
-          max(answers, key=lambda t: t[1])[1])
-    print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
-    print("\nvariance of costs:", variance)
+    if TIMER_MODE == False:
+        print("worst[0:10]=", maxAns[0][0:10], "\tmax cost:",
+              max(answers, key=lambda t: t[1])[1])
+        print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
+        print("\nvariance of costs:", variance)
 
-    print("\nmin time:", min(answers, key=lambda t: t[2])[2])
-    print("avg time:", str(sum(float(ans[2])
-                               for ans in answers)/len(answers))[0:6])
-    print("max time:", max(answers, key=lambda t: t[2])[2])
+        print("\nmin time:", min(answers, key=lambda t: t[2])[2])
+        print("avg time:", str(sum(float(ans[2])
+                                   for ans in answers)/len(answers))[0:6])
+        print("max time:", max(answers, key=lambda t: t[2])[2])
 
     print("\naverage vehicels:", sum(ans[3] for ans in answers)/len(answers))
 
 
 def writeResultToExel(file_name, answers, myRow):
     minCost = min(answers, key=lambda t: t[1])[1]
-    maxCost = max(answers, key=lambda t: t[1])[1]
-    avgCost = sum(ans[1] for ans in answers)/len(answers)
-    costVariance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
+    if TIMER_MODE == False:
+        maxCost = max(answers, key=lambda t: t[1])[1]
+        avgCost = sum(ans[1] for ans in answers)/len(answers)
+        costVariance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
 
-    minTime = min(answers, key=lambda t: t[2])[2]
-    maxTime = max(answers, key=lambda t: t[2])[2]
-    avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
+        minTime = min(answers, key=lambda t: t[2])[2]
+        maxTime = max(answers, key=lambda t: t[2])[2]
+        avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
+
+    avgVehc = sum(ans[3] for ans in answers)/len(answers)
 
     wbkName = 'Results.xlsx'
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
-        myCol = 4
+        myCol = 7
 
-        wks.cell(row=myRow, column=1).value = file_name
+        # wks.cell(row=myRow, column=1).value = file_name
 
         wks.cell(row=myRow, column=myCol).value = minCost
-        wks.cell(row=myRow, column=myCol+1).value = avgCost
-        wks.cell(row=myRow, column=myCol+2).value = maxCost
-        wks.cell(row=myRow, column=myCol+3).value = costVariance
+        if TIMER_MODE == False:
+            wks.cell(row=myRow, column=myCol+1).value = avgCost
+            wks.cell(row=myRow, column=myCol+2).value = maxCost
+            wks.cell(row=myRow, column=myCol+3).value = costVariance
 
-        wks.cell(row=myRow, column=myCol+4).value = minTime
-        wks.cell(row=myRow, column=myCol+5).value = avgTime
-        wks.cell(row=myRow, column=myCol+6).value = maxTime
+            wks.cell(row=myRow, column=myCol+4).value = minTime
+            wks.cell(row=myRow, column=myCol+5).value = avgTime
+            wks.cell(row=myRow, column=myCol+6).value = maxTime
+
+        wks.cell(row=myRow, column=myCol+7).value = avgVehc
 
     wbk.save(wbkName)
     wbk.close
@@ -124,12 +130,20 @@ def writeResultToExel(file_name, answers, myRow):
 
 def plotResult(generation, bests, averages):
 
-    plt.plot(list(range(generation)), bests, 'go-',
-             label='best of generations', linewidth=2)
+    plt.plot(list(range(generation)), bests, '-', color="gray",
+             label='best of generations', linewidth=1.52)
+
+    plt.xlabel('best solution')
+    plt.ylabel('generation')
+
     plt.show()
 
     plt.plot(list(range(generation)), averages, 'bo-',
-             label='avg of generations', linewidth=2)
+             label='avg of generations', linewidth=1.5)
+
+    plt.xlabel('best solution')
+    plt.ylabel('generation')
+
     plt.show()
 
 
@@ -167,8 +181,6 @@ def loadInstance(file):
             node.cluster = int(lines[cludSecIndex+i].split()[1]) + x
             problem.clusters.setdefault(node.cluster, []).append(node)
 
-        # print(problem)
-
     return problem
 
 
@@ -187,7 +199,6 @@ class Individual(object):
         cls.problem = problem
 
     def isFeasible(self):
-        # print(self.chromosome)
         routes = self.chromosome.split(str(problem.depotCluster))
         for route in routes:
             routeDemand = 0
@@ -196,7 +207,6 @@ class Individual(object):
                 for node in nodes:
                     routeDemand += node.demand
             if routeDemand > self.problem.capacity:
-                # print('not feasible')
                 return False
         return True
 
@@ -210,7 +220,6 @@ class Individual(object):
             for node in cls.problem.clusters[key]:
                 clust_demand += node.demand
             demands.append((key, clust_demand))
-        # print(demands)
 
         depoClust = demands.pop(0)[0]
         amount = 0
@@ -225,13 +234,11 @@ class Individual(object):
                 chromosome += str(depoClust) + ' ' + str(cluster) + ' '
                 amount = demand
 
-        # print(chromosome)
         return chromosome
 
     def mutate(self):
 
         globalRoutes = self.chromosome.split(str(problem.depotCluster))
-        # print('mut start' , self.chromosome ,globalRoutes)
 
         while True:
 
@@ -263,15 +270,11 @@ class Individual(object):
             for c in r.split():
                 self.chromosome += c + ' '
             self.chromosome += str(problem.depotCluster) + ' '
-            # self.chromosome += ' '.join(c) + ' ' + str(problem.depotCluster)
 
         temp = self.chromosome.split()[:-1]
         self.chromosome = ' '.join([e for e in temp])
-        # print('mut stop')
 
     def crossOver(self, parent2):
-        # print('xover start')
-        # print(self.chromosome , parent2.chromosome)
         size = len(self.chromosome.split())
         child1 = [-1 for i in range(size)]
         child2 = [-1 for i in range(size)]
@@ -295,8 +298,6 @@ class Individual(object):
 
             while (-1 in child1) or (-1 in child2):
                 gen1 = self.chromosome.split()[index % size]
-                # print('index mod size:', index %
-                #       size, 'size:', size, 'chrom:', parent2.chromosome)
 
                 gen2 = parent2.chromosome.split()[index % size]
 
@@ -312,14 +313,10 @@ class Individual(object):
 
         child1 = ' '.join([str(e) for e in child1])
         child2 = ' '.join([str(e) for e in child2])
-        # print('xover stop')
-        # print('ch1:',child1)
-        # print('ch2:',child2)
 
         return Individual(child1), Individual(child2)
 
     def callFitness(self):
-        # print('call fitness start')
         if not self.isFeasible():
             return -1
 
@@ -335,13 +332,9 @@ class Individual(object):
             for c in list(route.split()):
 
                 nodes = problem.clusters[int(c)]
-                # print('cluster ', c, ':', nodes)
 
                 for node in nodes:
                     nodeList.append(node)
-
-            # print(depot)
-            # print('all nodes:', nodeList)
 
             # now we have all nodes of one route
             # initial matrix of edges
@@ -367,17 +360,13 @@ class Individual(object):
                     else:
                         mat[i][j] = 0
 
-            # print(mat)
-
             # now solving tsp of edges matrix
             solver = TSP()
             solver.read_mat(mat)
 
-            # sol = NN_solver()
             sol = TwoOpt_solver(initial_tour='NN', iter_num=100)
             answer = solver.get_approx_solution(sol)
 
-            # print('answer:', answer)
             cost = answer[0]
             nodes = answer[1]
 
@@ -389,14 +378,8 @@ class Individual(object):
                 if n1.cluster != n2.cluster:
                     cost -= self.MList[n1.cluster][n2.cluster]
 
-            # print('cost:', cost)
-            # print('----------------------------')
-
             fitness += cost
 
-        # print('fitness: ', fitness)
-
-        # print('call fitness end')
         return fitness
 
     def __str__(self):
@@ -431,10 +414,12 @@ class Individual(object):
     def parentSelection(cls, population):
         parent1 = parent2 = None
 
+        population = sorted(population, key=lambda x: x.fitness)
+        index = int(0.3 * len(population))
         if SELECTION == RANDOM:
             while True:
-                parent1 = rn.choice(list(population))
-                parent2 = rn.choice(list(population))
+                parent1 = rn.choice(list(population[0:index]))
+                parent2 = rn.choice(list(population[0:index]))
                 if len(parent1.chromosome) == len(parent2.chromosome):
                     break
 
@@ -461,7 +446,16 @@ def GA(problem, initialPop, maxGeneration=100,
     generation = 1
     population = initialPop(problem)
 
-    for _ in range(MAX_GENERATION):
+    timer = time.time()
+    if TIMER_MODE:
+        maxGeneration = 100000000
+
+    for _ in range(maxGeneration):
+
+        if TIMER_MODE and time.time()-timer > 10:
+            print('time out')
+            return sorted(population, key=lambda x: x.fitness)[0]
+
         population = sorted(population, key=lambda x: x.fitness)
 
         best = population[0].fitness
@@ -504,27 +498,46 @@ def GA(problem, initialPop, maxGeneration=100,
 
     generation -= 1
     population = sorted(population, key=lambda x: x.fitness)
+
+    # plotResult(generation, bests, averages)
+
     return population[0]
 
 
 if __name__ == '__main__':
 
-    problem = loadInstance(
-        "instances/GoldenWasilKellyAndChao_0.75/kelly06.ccvrp")
+    myRow = 3
 
-    print('name: ',problem.name , ' dimention: ',problem.dimention , ' capacity: ',problem.capacity)
-    answers = []
+    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.1/"):
+        for filename in filenames:
+            file = os.path.join(root, filename)
+            problem = loadInstance(str(file))
 
-    for _ in range(10):
-        start = time.time()
+            if TIMER_MODE:
+                run = 1
+            else:
+                run = 10
+    
+            print('name: ', problem.name, ' dimention: ',
+                  problem.dimention, ' capacity: ', problem.capacity)
+            answers = []
 
-        sol = GA(problem, initialPop, MAX_GENERATION,
-                 MUTATION_RATE, DEBUG)
+            for _ in range(run):
+                start = time.time()
 
-        vehicels = sol.chromosome.count(str(problem.depotCluster)) - 1
+                sol = GA(problem, initialPop, MAX_GENERATION,
+                         MUTATION_RATE, DEBUG)
 
-        duration = str(time.time() - start)[0:6]
-        print('time: ',duration)
-        answers.append((sol.chromosome, sol.fitness, duration, vehicels))
+                vehicels = sol.chromosome.count(str(problem.depotCluster)) + 1
 
-    printResult(answers)
+                duration = str(time.time() - start)[0:6]
+                print('time: ', duration, 'fitness:',
+                      round(sol.fitness, 2), 'vehicels: ', vehicels)
+
+                answers.append(
+                    (sol.chromosome, sol.fitness, duration, vehicels))
+
+            printResult(answers)
+            if EXEl_WRITE:
+                writeResultToExel(filename, answers, myRow)
+                myRow += 1
