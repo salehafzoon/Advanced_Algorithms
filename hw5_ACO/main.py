@@ -16,14 +16,12 @@ import numpy as np
 from collections import defaultdict
 
 DEBUG = False
-ANTS_NUM = 10
-iterations = 500
-PheromoneConstant = 1.0
-DecayConstant = 0.2
-ALPHA = 1
-Beta = 2   # Heuristic constant
-RHO = 0.9
-Q0 = 0.9  # probability parameter
+iterations = 100
+
+ANTS_NUM = 4
+ALPHA = RHO = 0.1
+Beta = 2
+Q0 = 0.9
 
 bests = []
 averages = []
@@ -63,29 +61,6 @@ class Problem(object):
         self.capacity = None
         self.depotCluster = None
         self.clusters = []
-        self.minDistances = defaultdict(dict)
-
-    # calculating min distance of each per of clusters
-    def calculateMinDists(self):
-
-        for i in range(len(self.clusters)):
-            for j in range(i+1, len(self.clusters)):
-
-                # distance not calculated
-                if not(j in self.minDistances[i]):
-                    cl1 = self.clusters[i]
-                    cl2 = self.clusters[j]
-
-                    minDist = 1000000000000
-                    for n1 in cl1:
-                        for n2 in cl2:
-                            dist = euclideanDist_2D(n1, n2)
-                            if minDist > dist:
-                                minDist = dist
-
-                    self.minDistances[i][j] = minDist
-
-        # print(self.minDistances)
 
     def __str__(self):
         return 'depot cluster: ' + str(self.depotCluster)
@@ -96,13 +71,8 @@ class Problem(object):
 
 class Ant(object):
 
-    def __init__(self):
-        self.solution = []
-
-    def nextMove(self, problem):
-
-        # finding nearest cluster to move
-        pass
+    def __init__(self, cluster):
+        self.solution = [cluster]
 
     def __str__(self):
         return 'solution:' + str(self.solution)
@@ -117,23 +87,78 @@ class Colony(object):
         self.ants = []
         self.best = None
         self.problem = problem
-        self.T = self.initialTrail()
-        self.ants = [Ant() for _ in range(ANTS_NUM)]
+        self.initialTrail()
+        self.initialEta()
+        self.randPositioning()
+
+    # calculating min distance of each per of clusters
+    def initialEta(self):
+
+        self.eta = defaultdict(dict)
+        for i in range(len(self.problem.clusters)):
+            for j in range(i+1, len(self.problem.clusters)):
+
+                # distance not calculated
+                if not(j in self.eta[i]):
+                    cl1 = self.problem.clusters[i]
+                    cl2 = self.problem.clusters[j]
+
+                    minDist = 1000000000000
+                    for n1 in cl1:
+                        for n2 in cl2:
+                            dist = euclideanDist_2D(n1, n2)
+                            if minDist > dist:
+                                minDist = dist
+
+                    self.eta[i][j] = minDist
+
+        # print(self.eta)
 
     def initialTrail(self):
         size = len(self.problem.clusters)
         self.T = [[1 for _ in range(size)] for _ in range(size)]
 
-    def antPositioning(self):
+    def randPositioning(self):
 
         # remove depot cluster form cluster list
         clusters = [c for c in list(
             self.problem.clusters.keys()) if c != self.problem.depotCluster]
 
         # randomly position m ants on n clusters
-        for ant in self.ants:
+        for _ in range(ANTS_NUM):
             cluster = rn.choice(clusters)
-            ant.solution = [cluster]
+            clusters.remove(cluster)
+            self.ants.append(Ant(cluster))
+
+    def antNextMove(self, antNum):
+
+        # remove depot cluster form cluster list
+        clusters = [c for c in list(
+            self.problem.clusters.keys()) if c != self.problem.depotCluster]
+
+        # current cluster
+        r = self.ants[antNum].solution[-1]
+
+        # destinatin cluster
+        s = None
+
+        # candidate clusters to move
+        candidates = [
+            c for c in clusters if c not in self.ants[antNum].solution]
+
+        args = [self.T[r][u] *
+                self.eta[min(r, u)][max(r, u)] ** Beta for u in candidates]
+
+        q = rn.random()
+        # exploitation
+        if q < Q0:
+            s = candidates[args.index(max(args))]
+
+        # exploration
+        else:
+            p = [arg/sum(args) for arg in args]
+
+            # roulette wheel
 
     def pheromoneUpdate(self, bestSolution):
         pass
@@ -255,7 +280,6 @@ def loadInstance(file):
             node.cluster = int(lines[cludSecIndex+i].split()[1]) + x
             problem.clusters.setdefault(node.cluster, []).append(node)
 
-    problem.calculateMinDists()
     return problem
 
 
@@ -271,10 +295,9 @@ def ACS(problem, iterations=50, debug=True):
     colony = Colony(problem)
     for _ in range(iterations):
 
-        colony.antPositioning()
         for _ in range(size):
-            for ant in colony.ants:
-                ant.nextMove(problem)
+            for i in range(ANTS_NUM):
+                colony.antNextMove(i)
 
         if DEBUG:
             print("best:",)
