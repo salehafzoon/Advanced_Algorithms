@@ -66,6 +66,21 @@ class Problem(object):
         self.capacity = None
         self.depotCluster = None
         self.clusters = []
+        self.clusterDemands = []
+
+    def calculateClusterDemands(self):
+
+        self.clusterDemands = {}
+
+        for key in self.clusters:
+            clust_demand = 0
+            for node in self.clusters[key]:
+                clust_demand += node.demand
+            # self.clusterDemands.append((key, clust_demand))
+            self.clusterDemands[key] = clust_demand
+
+        del self.clusterDemands[self.depotCluster]
+        print(self.clusterDemands)
 
     def __str__(self):
         return 'depot cluster: ' + str(self.depotCluster)
@@ -138,20 +153,21 @@ class Colony(object):
 
     def antNextMove(self, antNum):
 
+        antSolution = self.ants[antNum].solution
+
         # remove depot cluster form cluster list
         clusters = [c for c in list(
             self.problem.clusters.keys()) if c != self.problem.depotCluster]
 
         # current cluster of ant solution
-        r = self.ants[antNum].solution[-1]
+        r = antSolution[-1]
 
         # destinatin cluster
         s = None
 
-        print(self.eta)
         # candidate clusters to move(not repetetive)
         candidates = [
-            c for c in clusters if c not in self.ants[antNum].solution]
+            c for c in clusters if c not in antSolution]
 
         args = [self.T[r][u] *
                 self.eta[min(r, u)][max(r, u)] ** Beta for u in candidates]
@@ -169,10 +185,30 @@ class Colony(object):
             # roulette wheel
             s = candidates[rouletteWheel(p)]
 
-        self.ants[antNum].solution.append(s)
+        antSolution.append(s)
 
         # check vehicle capacity
-        lastSrcIndex = -1
+
+        # all depot occurences
+        depotIndices = list([idx for idx, val in enumerate(
+            antSolution) if val == self.problem.depotCluster])
+
+        lastindex = max(depotIndices) if depotIndices else -1
+
+        demands = sum(self.problem.clusterDemands[c]
+                      for c in (antSolution[lastindex+1:]))
+
+        if demands > self.problem.capacity:
+
+            # print('back to depot', antSolution)
+            clust = antSolution.pop(-1)
+            antSolution.append(self.problem.depotCluster)
+            antSolution.append(clust)
+
+        # else:
+        #     print('under capacity')
+
+        self.ants[antNum].solution = antSolution
 
         self.localPheromoneUpdate(r, s)
 
@@ -181,6 +217,9 @@ class Colony(object):
         self.T[r][s] = (1-RHO) * self.T[r][s]
 
     def globalPheromoneUpdate(self, bestSolution):
+        # determining best solution
+
+        # global pheromone update
         pass
 
     def __str__(self):
@@ -300,6 +339,7 @@ def loadInstance(file):
             node.cluster = int(lines[cludSecIndex+i].split()[1]) + x
             problem.clusters.setdefault(node.cluster, []).append(node)
 
+    problem.calculateClusterDemands()
     return problem
 
 
@@ -309,8 +349,8 @@ def ACS(problem, iterations=50, debug=True):
     if TIMER_MODE:
         maxGeneration = 100000000
 
-    # number of problem clusters
-    size = len(problem.clusters)
+    # number of problem clusters to be seen
+    size = len(problem.clusters)-1
 
     # initial ants
     colony = Colony(problem)
@@ -324,10 +364,11 @@ def ACS(problem, iterations=50, debug=True):
             for i in range(ANTS_NUM):
                 colony.antNextMove(i)
 
-        # global pheromone update
+        # global pheromone update and set colony best solution
+        colony.globalPheromoneUpdate()
 
         if DEBUG:
-            print("best:",)
+            print("best:", colony.best)
 
     return colony.best
 
