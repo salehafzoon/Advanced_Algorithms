@@ -22,6 +22,7 @@ ANTS_NUM = 4
 ALPHA = RHO = 0.1
 Beta = 2
 Q0 = 0.9
+T0 = 1  # initial pheromone level
 
 bests = []
 averages = []
@@ -32,6 +33,10 @@ EXEl_WRITE = False
 
 def euclideanDist_2D(a, b):
     return math.sqrt((a.x - b.x)**2 + (a.y - b.y)**2)
+
+
+def rouletteWheel(arr):
+    return 0
 
 
 class Node(object):
@@ -110,21 +115,22 @@ class Colony(object):
                             if minDist > dist:
                                 minDist = dist
 
-                    self.eta[i][j] = minDist
+                    self.eta[i][j] = 1/minDist
 
         # print(self.eta)
 
+    # initial pheromone matrix
     def initialTrail(self):
         size = len(self.problem.clusters)
-        self.T = [[1 for _ in range(size)] for _ in range(size)]
+        self.T = [[T0 for _ in range(size)] for _ in range(size)]
 
     def randPositioning(self):
 
         # remove depot cluster form cluster list
-        clusters = [c for c in list(
-            self.problem.clusters.keys()) if c != self.problem.depotCluster]
+        clusters = list(self.problem.clusters.keys())
+        clusters.remove(self.problem.depotCluster)
 
-        # randomly position m ants on n clusters
+        # randomly position ants on n clusters
         for _ in range(ANTS_NUM):
             cluster = rn.choice(clusters)
             clusters.remove(cluster)
@@ -136,13 +142,14 @@ class Colony(object):
         clusters = [c for c in list(
             self.problem.clusters.keys()) if c != self.problem.depotCluster]
 
-        # current cluster
+        # current cluster of ant solution
         r = self.ants[antNum].solution[-1]
 
         # destinatin cluster
         s = None
 
-        # candidate clusters to move
+        print(self.eta)
+        # candidate clusters to move(not repetetive)
         candidates = [
             c for c in clusters if c not in self.ants[antNum].solution]
 
@@ -152,6 +159,7 @@ class Colony(object):
         q = rn.random()
         # exploitation
         if q < Q0:
+
             s = candidates[args.index(max(args))]
 
         # exploration
@@ -159,8 +167,20 @@ class Colony(object):
             p = [arg/sum(args) for arg in args]
 
             # roulette wheel
+            s = candidates[rouletteWheel(p)]
 
-    def pheromoneUpdate(self, bestSolution):
+        self.ants[antNum].solution.append(s)
+
+        # check vehicle capacity
+        lastSrcIndex = -1
+
+        self.localPheromoneUpdate(r, s)
+
+    def localPheromoneUpdate(self, r, s):
+        # self.T[r][s] = (1-RHO) * self.T[r][s] + RHO * T0
+        self.T[r][s] = (1-RHO) * self.T[r][s]
+
+    def globalPheromoneUpdate(self, bestSolution):
         pass
 
     def __str__(self):
@@ -292,12 +312,19 @@ def ACS(problem, iterations=50, debug=True):
     # number of problem clusters
     size = len(problem.clusters)
 
+    # initial ants
     colony = Colony(problem)
+
     for _ in range(iterations):
 
+        # solution completion condition
         for _ in range(size):
+
+            # solution construction and local pheromone update
             for i in range(ANTS_NUM):
                 colony.antNextMove(i)
+
+        # global pheromone update
 
         if DEBUG:
             print("best:",)
