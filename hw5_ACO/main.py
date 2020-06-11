@@ -15,18 +15,18 @@ from tspy2.solvers import TwoOpt_solver
 import numpy as np
 from collections import defaultdict
 
-DEBUG = False
-iterations = 100
+iterations = 10
 
-ANTS_NUM = 4
+ANTS_NUM = 5
 ALPHA = RHO = 0.1
 Beta = 2
-Q0 = 0.9
+Q0 = 0.5
 T0 = 1  # initial pheromone level
 
 bests = []
 averages = []
 
+DEBUG = False
 TIMER_MODE = False
 EXEl_WRITE = False
 
@@ -80,7 +80,7 @@ class Problem(object):
             self.clusterDemands[key] = clust_demand
 
         del self.clusterDemands[self.depotCluster]
-        print(self.clusterDemands)
+        # print('demands: ', self.clusterDemands)
 
     def __str__(self):
         return 'depot cluster: ' + str(self.depotCluster)
@@ -106,10 +106,31 @@ class Colony(object):
     def __init__(self, problem):
         self.ants = []
         self.best = None
+        self.avg = None
         self.problem = problem
         self.initialTrail()
         self.initialEta()
-        self.randPositioning()
+        # self.randPositioning()
+        self.calculateMs()
+
+    def calculateMs(self):
+        clusterNum = len(self.problem.clusters)
+        mList = np.zeros(shape=(clusterNum, clusterNum))
+        # print('clusters:', clusterNum)
+
+        for i in range(clusterNum):
+            m = 0
+            for j in range(clusterNum):
+                if i != j:
+                    for n1 in self.problem.clusters[i]:
+                        for n2 in self.problem.clusters[j]:
+                            m += math.sqrt((n1.x - n2.x)**2 + (n1.y - n2.y)**2)
+
+                    mList[i][j] = m
+                else:
+                    mList[i][j] = 0
+
+        self.Mlist = mList
 
     # calculating min distance of each per of clusters
     def initialEta(self):
@@ -141,6 +162,7 @@ class Colony(object):
 
     def randPositioning(self):
 
+        self.ants = []
         # remove depot cluster form cluster list
         clusters = list(self.problem.clusters.keys())
         clusters.remove(self.problem.depotCluster)
@@ -216,11 +238,111 @@ class Colony(object):
         # self.T[r][s] = (1-RHO) * self.T[r][s] + RHO * T0
         self.T[r][s] = (1-RHO) * self.T[r][s]
 
-    def globalPheromoneUpdate(self, bestSolution):
+    def globalPheromoneUpdate(self):
+        self.best = (None, None)
+        self.avg = 0
+
         # determining best solution
+        solutions = [ant.solution for ant in self.ants]
+
+        sol0 = " ".join(str(e) for e in solutions[0])
+        self.best = (solutions[0], self.costCalculate(sol0))
+
+        self.avg += self.best[1]
+
+        for solution in solutions[1:]:
+            fitness = self.costCalculate(" ".join(str(e) for e in solution))
+
+            self.avg += fitness
+            if fitness < self.best[1]:
+                self.best = (solution, fitness)
+
+        self.avg /= len(solutions)
 
         # global pheromone update
-        pass
+        bestSol = self.best[0]
+
+        for i in range(len(self.T)):
+            for j in range(len(self.T)):
+                deltaT = 0
+
+                # if edge between i and j be in best solution(order of nodes is not important)
+                # we update pheromone of edges (i,j) and (j,i)
+
+                if i in bestSol and j in bestSol and + \
+                        abs(bestSol.index(i) - bestSol.index(j)) == 1:
+
+                    deltaT = self.eta[min(i, j)][max(i, j)]
+
+                self.T[i][j] = (1-ALPHA) * self.T[i][j] + \
+                    ALPHA * deltaT
+
+                self.T[j][j] = (1-ALPHA) * self.T[j][i] + \
+                    ALPHA * deltaT
+
+    def costCalculate(self, solution):
+
+        fitness = 0
+
+        routes = solution.split(str(problem.depotCluster))
+
+        depot = problem.clusters[problem.depotCluster][0]
+
+        for route in routes:
+            nodeList = [depot]
+
+            for c in list(route.split()):
+
+                nodes = problem.clusters[int(c)]
+
+                for node in nodes:
+                    nodeList.append(node)
+
+            # now we have all nodes of one route
+            # initial matrix of edges
+            size = len(nodeList)
+            mat = np.zeros(shape=(size, size))
+
+            for i in range(size):
+                for j in range(size):
+                    if i != j:
+                        n1 = nodeList[i]
+                        n2 = nodeList[j]
+                        distance = math.sqrt(
+                            (n1.x - n2.x)**2 + (n1.y - n2.y)**2)
+
+                        # nodes from the same cluster
+                        if n1.cluster == n2.cluster:
+                            mat[i][j] = distance
+
+                        # adding M to distance of nodes from different clusters
+                        else:
+                            M = self.Mlist[n1.cluster][n2.cluster]
+                            mat[i][j] = distance + M
+                    else:
+                        mat[i][j] = 0
+
+            # now solving tsp of edges matrix
+            solver = TSP()
+            solver.read_mat(mat)
+
+            sol = TwoOpt_solver(initial_tour='NN', iter_num=100)
+            answer = solver.get_approx_solution(sol)
+
+            cost = answer[0]
+            nodes = answer[1]
+
+            # decreasing total added Ms to answer
+            for i in range(len(nodes)-1):
+                n1 = nodeList[nodes[i]]
+                n2 = nodeList[nodes[i+1]]
+
+                if n1.cluster != n2.cluster:
+                    cost -= self.Mlist[n1.cluster][n2.cluster]
+
+            fitness += cost
+
+        return fitness
 
     def __str__(self):
         return str(best) + 'as best answer by ' + str(len(ants)) + 'ants'
@@ -246,8 +368,6 @@ def printResult(answers):
         print("avg time:", str(sum(float(ans[2])
                                    for ans in answers)/len(answers))[0:6])
         print("max time:", max(answers, key=lambda t: t[2])[2])
-
-    print("\naverage vehicels:", sum(ans[3] for ans in answers)/len(answers))
 
 
 def writeResultToExel(file_name, answers, myRow):
@@ -350,13 +470,13 @@ def ACS(problem, iterations=50, debug=True):
         maxGeneration = 100000000
 
     # number of problem clusters to be seen
-    size = len(problem.clusters)-1
+    size = len(problem.clusters) - 2
 
     # initial ants
     colony = Colony(problem)
 
     for _ in range(iterations):
-
+        colony.randPositioning()
         # solution completion condition
         for _ in range(size):
 
@@ -368,7 +488,7 @@ def ACS(problem, iterations=50, debug=True):
         colony.globalPheromoneUpdate()
 
         if DEBUG:
-            print("best:", colony.best)
+            print("best: ", colony.best[1], ' avg: ', colony.avg, '\n')
 
     return colony.best
 
@@ -377,38 +497,38 @@ if __name__ == '__main__':
 
     myRow = 3
 
-    problem = loadInstance('instances/Marc/a-n14-c4.ccvrp')
-
-    best = ACS(problem, iterations, DEBUG)
-
     # for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.1/"):
     #     for filename in filenames:
     #         file = os.path.join(root, filename)
     #         problem = loadInstance(str(file))
 
-    #         if TIMER_MODE:
-    #             run = 1
-    #         else:
-    #             run = 10
+    if TIMER_MODE:
+        run = 1
+    else:
+        run = 10
+    
+    problem = loadInstance(
+        'instances/GoldenWasilKellyAndChao_0.1/kelly01.ccvrp')
 
-    #         print('name: ', problem.name, ' dimention: ',
-    #               problem.dimention, ' capacity: ', problem.capacity)
-    #         answers = []
+    print('name: ', problem.name, ' dimention: ',
+            problem.dimention, ' capacity: ', problem.capacity)
+    answers = []
 
-    #         for _ in range(run):
-    #             start = time.time()
+    for _ in range(run):
+        start = time.time()
 
-    #             best = Colony(problem, initialPop, MAX_GENERATION,
-    #                           MUTATION_RATE, DEBUG)
+        best = ACS(problem, iterations, DEBUG)
 
-    #             duration = str(time.time() - start)[0:6]
-    #             print('time: ', duration, 'cost: ',
-    #                   round(best.cost, 2), 'sol: ', best.solution)
+        duration = str(time.time() - start)[0:6]
+        
+        print('time: ', duration, '\tcost:',
+                round(best[1], 3), '\tsol:', best[0][:4])
 
-    #             answers.append(
-    #                 (best.solution, best.cost, duration))
+        answers.append(
+            (best[0], best[1], duration))
 
-    #         printResult(answers)
-    #         if EXEl_WRITE:
-    #             writeResultToExel(filename, answers, myRow)
-    #             myRow += 1
+    printResult(answers)
+
+    # if EXEl_WRITE:
+    #     writeResultToExel(filename, answers, myRow)
+    # myRow += 1
