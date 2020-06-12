@@ -21,8 +21,8 @@ Beta = 2
 Q0 = 0.9
 
 DEBUG = False
-TIMER_MODE = True
-EXEl_WRITE = True
+TIMER_MODE = False
+EXEl_WRITE = False
 
 
 def euclideanDist_2D(a, b):
@@ -563,13 +563,13 @@ def ACS(problem, iterations=50, debug=True):
 
 if __name__ == '__main__':
 
-    myRow = 17
+    myRow = 3
 
-    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.25/"):
+    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.1/"):
         for filename in filenames:
             file = os.path.join(root, filename)
             problem = loadInstance(str(file))
-
+            
             if TIMER_MODE:
                 run = 1
             else:
