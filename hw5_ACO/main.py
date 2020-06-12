@@ -15,18 +15,15 @@ from tspy2.solvers import TwoOpt_solver
 import numpy as np
 from collections import defaultdict
 
-iterations = 10
-
-ANTS_NUM = 5
-ALPHA = RHO = 0.1
+iterations = 20
+ALPHA = RHO = 0.2
 Beta = 2
-Q0 = 0.5
-T0 = 1  # initial pheromone level
+Q0 = 0.9
 
 bests = []
 averages = []
 
-DEBUG = False
+DEBUG = True
 TIMER_MODE = False
 EXEl_WRITE = False
 
@@ -107,11 +104,47 @@ class Colony(object):
         self.ants = []
         self.best = None
         self.avg = None
+        self.antsNum = int(len(problem.clusters) / 2)
         self.problem = problem
-        self.initialTrail()
         self.initialEta()
         # self.randPositioning()
         self.calculateMs()
+        self.calculateT0()
+        self.initialTrail()
+
+    def calculateT0(self):
+
+        demand = 0
+        src = self.problem.depotCluster
+        solution = ""
+
+        for _ in range(len(self.problem.clusters)-1):
+            candidates = self.minDists[src]
+            candidates.pop(src)
+
+            while True:
+                dest = candidates.index(min(candidates))
+                candidates[dest] = 1000000000000000
+                if str(dest) not in solution:
+                    break
+
+            src = dest
+            demand += self.problem.clusterDemands[dest]
+
+            if demand > self.problem.capacity:
+                demand = self.problem.clusterDemands[dest]
+                solution += str(self.problem.depotCluster) + \
+                    " " + str(dest) + " "
+            else:
+                solution += str(dest) + " "
+
+        # print(self.problem.clusterDemands)
+        # print(solution)
+        # fit = self.costCalculate(solution)
+        
+        size = len(self.problem.clusters)
+        size = 1
+        self.T0 = 1/(size * self.costCalculate(solution))
 
     def calculateMs(self):
         clusterNum = len(self.problem.clusters)
@@ -135,6 +168,12 @@ class Colony(object):
     # calculating min distance of each per of clusters
     def initialEta(self):
 
+        size = len(self.problem.clusters)
+
+        # min distance between clusters
+        self.minDists = [[0 for _ in range(size)]
+                         for _ in range(size)]
+
         self.eta = defaultdict(dict)
         for i in range(len(self.problem.clusters)):
             for j in range(i+1, len(self.problem.clusters)):
@@ -153,12 +192,15 @@ class Colony(object):
 
                     self.eta[i][j] = 1/minDist
 
+                    self.minDists[i][j] = minDist
+                    self.minDists[j][i] = minDist
+
         # print(self.eta)
 
     # initial pheromone matrix
     def initialTrail(self):
         size = len(self.problem.clusters)
-        self.T = [[T0 for _ in range(size)] for _ in range(size)]
+        self.T = [[self.T0 for _ in range(size)] for _ in range(size)]
 
     def randPositioning(self):
 
@@ -168,7 +210,7 @@ class Colony(object):
         clusters.remove(self.problem.depotCluster)
 
         # randomly position ants on n clusters
-        for _ in range(ANTS_NUM):
+        for _ in range(self.antsNum):
             cluster = rn.choice(clusters)
             clusters.remove(cluster)
             self.ants.append(Ant(cluster))
@@ -235,8 +277,9 @@ class Colony(object):
         self.localPheromoneUpdate(r, s)
 
     def localPheromoneUpdate(self, r, s):
-        # self.T[r][s] = (1-RHO) * self.T[r][s] + RHO * T0
-        self.T[r][s] = (1-RHO) * self.T[r][s]
+        
+        self.T[r][s] = (1-RHO) * self.T[r][s] + RHO * self.T0
+        self.T[s][r] = (1-RHO) * self.T[s][r] + RHO * self.T0
 
     def globalPheromoneUpdate(self):
         self.best = (None, None)
@@ -272,13 +315,13 @@ class Colony(object):
                 if i in bestSol and j in bestSol and + \
                         abs(bestSol.index(i) - bestSol.index(j)) == 1:
 
-                    deltaT = self.eta[min(i, j)][max(i, j)]
+                    deltaT = 1/self.best[1]
 
                 self.T[i][j] = (1-ALPHA) * self.T[i][j] + \
-                    ALPHA * deltaT
+                    (ALPHA * deltaT)
 
                 self.T[j][j] = (1-ALPHA) * self.T[j][i] + \
-                    ALPHA * deltaT
+                    (ALPHA * deltaT)
 
     def costCalculate(self, solution):
 
@@ -474,14 +517,14 @@ def ACS(problem, iterations=50, debug=True):
 
     # initial ants
     colony = Colony(problem)
-
+    print('ants number: ', colony.antsNum)
     for _ in range(iterations):
         colony.randPositioning()
         # solution completion condition
         for _ in range(size):
 
             # solution construction and local pheromone update
-            for i in range(ANTS_NUM):
+            for i in range(colony.antsNum):
                 colony.antNextMove(i)
 
         # global pheromone update and set colony best solution
@@ -489,6 +532,7 @@ def ACS(problem, iterations=50, debug=True):
 
         if DEBUG:
             print("best: ", colony.best[1], ' avg: ', colony.avg, '\n')
+            # print(colony.T[0][0], colony.T[0][2], '\n')
 
     return colony.best
 
@@ -505,13 +549,13 @@ if __name__ == '__main__':
     if TIMER_MODE:
         run = 1
     else:
-        run = 10
-    
+        run = 1
+
     problem = loadInstance(
-        'instances/GoldenWasilKellyAndChao_0.1/kelly01.ccvrp')
+        'instances/Marc/a-n14-c4.ccvrp')
 
     print('name: ', problem.name, ' dimention: ',
-            problem.dimention, ' capacity: ', problem.capacity)
+          problem.dimention, ' capacity: ', problem.capacity)
     answers = []
 
     for _ in range(run):
@@ -520,9 +564,9 @@ if __name__ == '__main__':
         best = ACS(problem, iterations, DEBUG)
 
         duration = str(time.time() - start)[0:6]
-        
+
         print('time: ', duration, '\tcost:',
-                round(best[1], 3), '\tsol:', best[0][:4])
+              round(best[1], 3), '\tsol:', best[0][:4])
 
         answers.append(
             (best[0], best[1], duration))
