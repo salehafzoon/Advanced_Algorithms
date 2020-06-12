@@ -452,7 +452,7 @@ def GA(problem, initialPop, maxGeneration=100,
 
     for _ in range(maxGeneration):
 
-        if TIMER_MODE and time.time()-timer > 10:
+        if TIMER_MODE and time.time()-timer > 60:
             print('time out')
             return sorted(population, key=lambda x: x.fitness)[0]
 

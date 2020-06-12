@@ -15,17 +15,14 @@ from tspy2.solvers import TwoOpt_solver
 import numpy as np
 from collections import defaultdict
 
-iterations = 20
+iterations = 10
 ALPHA = RHO = 0.2
 Beta = 2
 Q0 = 0.9
 
-bests = []
-averages = []
-
-DEBUG = True
-TIMER_MODE = False
-EXEl_WRITE = False
+DEBUG = False
+TIMER_MODE = True
+EXEl_WRITE = True
 
 
 def euclideanDist_2D(a, b):
@@ -103,13 +100,15 @@ class Colony(object):
     def __init__(self, problem):
         self.ants = []
         self.best = None
-        self.avg = None
-        self.antsNum = int(len(problem.clusters) / 2)
+        self.iterBests = []
+        self.iterAvgs = []
+        self.antsNum = max(math.ceil(len(problem.clusters) / 10), 2)
         self.problem = problem
         self.initialEta()
         # self.randPositioning()
         self.calculateMs()
-        self.calculateT0()
+        # self.calculateT0()
+        self.T0 = 0.00005
         self.initialTrail()
 
     def calculateT0(self):
@@ -141,7 +140,7 @@ class Colony(object):
         # print(self.problem.clusterDemands)
         # print(solution)
         # fit = self.costCalculate(solution)
-        
+
         size = len(self.problem.clusters)
         size = 1
         self.T0 = 1/(size * self.costCalculate(solution))
@@ -277,30 +276,36 @@ class Colony(object):
         self.localPheromoneUpdate(r, s)
 
     def localPheromoneUpdate(self, r, s):
-        
+
         self.T[r][s] = (1-RHO) * self.T[r][s] + RHO * self.T0
         self.T[s][r] = (1-RHO) * self.T[s][r] + RHO * self.T0
 
     def globalPheromoneUpdate(self):
-        self.best = (None, None)
-        self.avg = 0
+
+        avg = 0
 
         # determining best solution
         solutions = [ant.solution for ant in self.ants]
 
         sol0 = " ".join(str(e) for e in solutions[0])
-        self.best = (solutions[0], self.costCalculate(sol0))
+        best = (solutions[0], self.costCalculate(sol0))
 
-        self.avg += self.best[1]
+        avg += best[1]
 
         for solution in solutions[1:]:
             fitness = self.costCalculate(" ".join(str(e) for e in solution))
 
-            self.avg += fitness
-            if fitness < self.best[1]:
-                self.best = (solution, fitness)
+            avg += fitness
+            if fitness < best[1]:
+                best = (solution, fitness)
 
-        self.avg /= len(solutions)
+        avg /= len(solutions)
+
+        self.iterBests.append(best[1])
+        self.iterAvgs.append(avg)
+
+        if self.best == None or best[1] < self.best[1]:
+            self.best = best
 
         # global pheromone update
         bestSol = self.best[0]
@@ -420,13 +425,9 @@ def writeResultToExel(file_name, answers, myRow):
         avgCost = sum(ans[1] for ans in answers)/len(answers)
         costVariance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
 
-        minTime = min(answers, key=lambda t: t[2])[2]
-        maxTime = max(answers, key=lambda t: t[2])[2]
         avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
 
-    avgVehc = sum(ans[3] for ans in answers)/len(answers)
-
-    wbkName = 'Results.xlsx'
+    wbkName = 'one_min_Results.xlsx'
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
         myCol = 7
@@ -439,11 +440,7 @@ def writeResultToExel(file_name, answers, myRow):
             wks.cell(row=myRow, column=myCol+2).value = maxCost
             wks.cell(row=myRow, column=myCol+3).value = costVariance
 
-            wks.cell(row=myRow, column=myCol+4).value = minTime
-            wks.cell(row=myRow, column=myCol+5).value = avgTime
-            wks.cell(row=myRow, column=myCol+6).value = maxTime
-
-        wks.cell(row=myRow, column=myCol+7).value = avgVehc
+            wks.cell(row=myRow, column=myCol+4).value = avgTime
 
     wbk.save(wbkName)
     wbk.close
@@ -506,11 +503,30 @@ def loadInstance(file):
     return problem
 
 
+def plotProgress(bests, avgs):
+
+    plt.plot(list(range(len(bests))), bests, '-', color="gray",
+             label='best of generations', linewidth=1.5)
+
+    plt.xlabel('best solution')
+    plt.ylabel('generation')
+
+    plt.show()
+
+    plt.plot(list(range(len(avgs))), avgs, 'bo-',
+             label='avg of generations', linewidth=1.5)
+
+    plt.xlabel('avg solution')
+    plt.ylabel('generation')
+
+    plt.show()
+
+
 def ACS(problem, iterations=50, debug=True):
 
     timer = time.time()
     if TIMER_MODE:
-        maxGeneration = 100000000
+        iterations = 10000000000
 
     # number of problem clusters to be seen
     size = len(problem.clusters) - 2
@@ -518,7 +534,13 @@ def ACS(problem, iterations=50, debug=True):
     # initial ants
     colony = Colony(problem)
     print('ants number: ', colony.antsNum)
+
     for _ in range(iterations):
+
+        if TIMER_MODE and time.time()-timer > 60:
+            print('time out')
+            break
+
         colony.randPositioning()
         # solution completion condition
         for _ in range(size):
@@ -531,48 +553,47 @@ def ACS(problem, iterations=50, debug=True):
         colony.globalPheromoneUpdate()
 
         if DEBUG:
-            print("best: ", colony.best[1], ' avg: ', colony.avg, '\n')
+            print("best: ", colony.best[1], '\n')
             # print(colony.T[0][0], colony.T[0][2], '\n')
+
+    # plotProgress(colony.iterBests,colony.iterAvgs)
 
     return colony.best
 
 
 if __name__ == '__main__':
 
-    myRow = 3
+    myRow = 17
 
-    # for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.1/"):
-    #     for filename in filenames:
-    #         file = os.path.join(root, filename)
-    #         problem = loadInstance(str(file))
+    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.25/"):
+        for filename in filenames:
+            file = os.path.join(root, filename)
+            problem = loadInstance(str(file))
 
-    if TIMER_MODE:
-        run = 1
-    else:
-        run = 1
+            if TIMER_MODE:
+                run = 1
+            else:
+                run = 10
 
-    problem = loadInstance(
-        'instances/Marc/a-n14-c4.ccvrp')
+            print('\nname: ', problem.name, ' dimention: ',
+                  problem.dimention, ' capacity: ', problem.capacity)
+            answers = []
 
-    print('name: ', problem.name, ' dimention: ',
-          problem.dimention, ' capacity: ', problem.capacity)
-    answers = []
+            for _ in range(run):
+                start = time.time()
 
-    for _ in range(run):
-        start = time.time()
+                best = ACS(problem, iterations, DEBUG)
 
-        best = ACS(problem, iterations, DEBUG)
+                duration = str(time.time() - start)[0:6]
 
-        duration = str(time.time() - start)[0:6]
+                print('time: ', duration, '\tcost:',
+                      round(best[1], 2), '\tsol:', best[0][:4])
 
-        print('time: ', duration, '\tcost:',
-              round(best[1], 3), '\tsol:', best[0][:4])
+                answers.append(
+                    (best[0], best[1], duration))
 
-        answers.append(
-            (best[0], best[1], duration))
+            printResult(answers)
 
-    printResult(answers)
-
-    # if EXEl_WRITE:
-    #     writeResultToExel(filename, answers, myRow)
-    # myRow += 1
+            if EXEl_WRITE:
+                writeResultToExel(filename, answers, myRow)
+            myRow += 1
