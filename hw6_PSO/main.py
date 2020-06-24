@@ -25,16 +25,21 @@ TEST_FUNC = None
 BOUND = None
 Ns = [10, 30, 50]
 
-wMax = 0.729
+wMax = 0.9
 wMin = 0.1
-wC = 0.99
+wC = 0.7
 
-ITERATIONS = 400
-SWARM_SIZE = 40
 
-DEBUG = True
+# 40000 evaluation
+ITERATIONS = 100
+SWARM_SIZE = 20
+
+DEBUG = False
 TIMER_MODE = False
 EXEl_WRITE = False
+
+c1Min = c2Min = 0.5
+c1Max = c2Max = 2.5
 
 
 class Particle(object):
@@ -68,8 +73,31 @@ class Particle(object):
                 fVal += (100 * (self.x[i + 1] - self.x[i]
                                 ** 2) ** 2) + ((self.x[i] - 1) ** 2)
 
-        elif TEST_FUNC == Step:
-            pass
+        elif TEST_FUNC == Ackley:
+            part1 = part2 = 0
+            for i in range(self.n):
+                part1 += self.x[i] ** 2
+                part2 += math.cos(2 * math.pi * self.x[i])
+
+            fVal = -20 * math.exp(-0.2 * math.sqrt((1/self.n) * part1)) - \
+                math.exp((1/self.n) * part2) + 20 + math.e
+
+        elif TEST_FUNC == Griewank:
+            for i in range(self.n):
+                fVal += self.x[i] ** 2
+
+            fVal *= 1/4000
+
+            temp = 1
+            for i in range(self.n):
+                temp *= math.cos(self.x[i] / math.sqrt(i+1))
+
+            fVal = fVal - temp + 1
+
+        elif TEST_FUNC == Rastrigin:
+            for i in range(self.n):
+                fVal += self.x[i]**2 - 10 * \
+                    math.cos(2 * math.pi*self.x[i]) + 10
 
         self.f = fVal
 
@@ -78,11 +106,13 @@ class Particle(object):
             self.pbest = self.x
             self.pbestVal = self.f
 
-    def updateVelocityAndPos(self, gbest):
+    def updateVelocityAndPos(self, gbest, t):
         for i in range(self.n):
-            c1 = rn.uniform(0, 3)
+            c1 = rn.uniform(0, 2.5)
             c2 = 4 - c1
-            # c2 = rn.uniform(0, 2)
+
+            # c1 = (c1Min - c1Max) * (t/ITERATIONS) + c1Min
+            # c2 = (c2Min - c2Max) * (t/ITERATIONS) + c2Min
 
             r1 = rn.random()
             r2 = rn.random()
@@ -93,11 +123,14 @@ class Particle(object):
             self.x[i] += self.v[i]
             self.calculate_f()
 
-        self.updateW()
+        self.updateW(t)
 
-    def updateW(self):
-        self.w = min(self.w * wC, wMin)
-        # self.w = self.w
+    def updateW(self, t):
+        # self.w *= wC
+        # self.w = wMax/math.log(t+1)
+        self.w = math.exp(-0.9 * t+1)*wMax
+
+        self.w = min(self.w, wMin)
 
     def __str__(self):
         return "x: " + str(self.x[:5]) + "f(x): " + str(self.f)
@@ -138,21 +171,25 @@ class Swarm(object):
 
 def printResult(answers):
 
-    minAns = min(answers, key=lambda t: t[1])
-    maxAns = max(answers, key=lambda t: t[1])
-    variance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
+    # (bestF, bestX, duration)
 
-    print("\nbest[0:10]=", minAns[0][0:10], "\tmin cost:", minAns[1])
+    minAns = min(answers, key=lambda t: t[0])
+    avgAns = sum(ans[0] for ans in answers)/len(answers)
+    maxAns = max(answers, key=lambda t: t[0])
+    variance = round(math.sqrt(np.var([ans[0]for ans in answers])), 3)
+
+    minTime = min(answers, key=lambda t: t[2])
+    avgTime = sum(ans[2] for ans in answers)/len(answers)
+    maxTime = max(answers, key=lambda t: t[2])
+
     if TIMER_MODE == False:
-        print("worst[0:10]=", maxAns[0][0:10], "\tmax cost:",
-              max(answers, key=lambda t: t[1])[1])
-        print("\naverage cost:", sum(ans[1] for ans in answers)/len(answers))
-        print("\nvariance of costs:", variance)
-
-        print("\nmin time:", min(answers, key=lambda t: t[2])[2])
-        print("avg time:", str(sum(float(ans[2])
-                                   for ans in answers)/len(answers))[0:6])
-        print("max time:", max(answers, key=lambda t: t[2])[2])
+        print("\nbest = ", round(minAns[0], 3), "avg = ", round(avgAns, 3),
+              " worst = ", round(maxAns[0], 3), "variance = ", round(variance, 3))
+        print("----------------")
+        print("minTime = ", round(minTime[0], 3), "avgTime = ",
+              round(avgTime, 3), " maxTime = ", round(maxTime[0], 3))
+    else:
+        print("\nbest = ", minAns)
 
 
 def writeResultToExel(file_name, answers, myRow):
@@ -238,11 +275,11 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
         swarm.updateGbest()
 
         for particle in swarm.particles:
-            particle.updateVelocityAndPos(swarm.gbest)
+            particle.updateVelocityAndPos(swarm.gbest, i+1)
 
         if DEBUG:
             print("iteration:", i, "gbest: ",
-                  swarm.gbestVal, "\t", swarm.gbest[:4])
+                  swarm.gbestVal, "\t", [round(x, 3) for x in swarm.gbest[:10]])
 
             # print("iteration:", i, "gbest: ", swarm.gbestVal)
 
@@ -251,16 +288,50 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
 
 if __name__ == '__main__':
 
-    # for test_func in FUNCTIONS:
+    row = 3
 
-    #     (TEST_FUNC, BOUND) = test_func
+    if TIMER_MODE:
+        run = 1
+    else:
+        run = 10
 
-    #     for N in Ns:
-    #         PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+    for test_func in FUNCTIONS:
+        (TEST_FUNC, BOUND) = test_func
 
-    (TEST_FUNC, BOUND) = FUNCTIONS[0]
-    N = 10
-    print("<<<<", TEST_FUNC,
-          "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
+        for N in Ns:
+            print("\n<<<<", TEST_FUNC,
+                  "with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>\n")
 
-    PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+            answers = []
+
+            for _ in range(run):
+                start = time.time()
+
+                (bestX, bestF) = PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+
+                duration = round(time.time() - start, 4)
+
+                print('time: ', duration, '\tbest:',
+                      round(bestF, 3), '\tx[0:5]:', [round(x, 3) for x in bestX[:5]])
+
+                answers.append(
+                    (bestF, bestX, duration))
+
+            printResult(answers)
+
+            if EXEl_WRITE:
+                writeResultToExel(filename, answers, myRow)
+            row += 1
+
+            # print("<<<<", TEST_FUNC,
+            #       "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
+
+            # (x, f) = PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+
+    # (TEST_FUNC, BOUND) = FUNCTIONS[0]
+    # N = 30
+
+    # print("<<<<", TEST_FUNC,
+    #       "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
+
+    # PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
