@@ -11,13 +11,6 @@ import os
 import numpy as np
 from collections import defaultdict
 
-ITERATIONS = 100
-SWARM_SIZE = 40
-
-DEBUG = False
-TIMER_MODE = False
-EXEl_WRITE = False
-
 Rosenbrock = "Rosenbrock"
 Step = "Step"
 Ackley = "Ackley"
@@ -32,45 +25,89 @@ TEST_FUNC = None
 BOUND = None
 Ns = [10, 30, 50]
 
+wMax = 0.729
+wMin = 0.1
+wC = 0.99
+
+ITERATIONS = 10
+SWARM_SIZE = 40
+
+DEBUG = True
+TIMER_MODE = False
+EXEl_WRITE = False
+
 
 class Particle(object):
+
+    w = wMax
+
     def __init__(self, n):
         self.n = n
-        self.x = []
-        self.v = []
+        self.x = [-1] * n
+        self.v = [-1] * n
         self.f = None
         self.pbest = None
-        self.bound = None
+        self.pbestVal = None
         self.positioning()
 
     def positioning(self):
-        for i in self.n:
+        for i in range(self.n):
+            # self.x[i] = 1
             self.x[i] = rn.uniform(-BOUND, BOUND)
             self.v[i] = 0.1 * self.x[i]
-            self.calculate_f()
+            # self.v[i] = 0.1
+
+        self.calculate_f()
+        self.pbest = self.x
+        self.pbestVal = self.f
 
     def calculate_f(self):
         fVal = 0
         if TEST_FUNC == Rosenbrock:
-            for i in range(len(self.n)-1):
-                fVal += (100 * (x[i + 1] - x[i] ** 2) ** 2) + ((x[i] - 1) ** 2)
+            # for i in range(self.n-1):
+            #     fVal += (100 * (self.x[i + 1] - self.x[i]
+            #                     ** 2) ** 2) + ((self.x[i] - 1) ** 2)
+
+            for i in range(self.n):
+                fVal += abs(self.x[i]**2)
 
         elif TEST_FUNC == Step:
             pass
 
         self.f = fVal
-        
 
     def updatePbest(self):
-        self.pbest = min(self.pbest,self.f)
+        if self.f < self.pbestVal:
+            self.pbest = self.x
+            self.pbestVal = self.f
 
-    def updateVelocityAndPos(self):
+    def updateVelocityAndPos(self, gbest):
         for i in range(self.n):
-            c1 = rn.uniform(0,2)
-            c2 = rn.uniform(0,2)
-            
-            v[i] = w[i] * v[i] + c
-    
+            # c1 = rn.uniform(0, 2)
+            # c2 = 4 - c1
+
+            c1 = 1.49
+            c2 = 1.49
+
+            r1 = rn.random()
+            r2 = rn.random()
+
+            # newV = (self.w * self.v[i]) + (c1 * r1 *
+            #                                (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
+
+            newV = (self.w * self.v[i]) + (c1 * r1 *
+                                           (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
+
+            self.v[i] = newV
+
+            self.x[i] = self.x[i] + self.v[i]
+
+        self.updateW()
+
+    def updateW(self):
+        # self.w = min(self.w * wC, wMin)
+        self.w = self.w
+
     def __str__(self):
         return "x: " + str(self.x[:5]) + "f(x): " + str(self.f)
 
@@ -84,16 +121,25 @@ class Swarm(object):
         self.size = size
         self.n = n
         self.gbest = None
+        self.gbestVal = None
         self.particles = []
+        self.initial()
 
     def initial(self):
         for _ in range(self.size):
-            self.particles.append(Particle(n))
-    
+            self.particles.append(Particle(self.n))
+
+        self.gbest = self.particles[0].x
+        self.gbestVal = self.particles[0].f
+
     def updateGbest(self):
         for par in self.particles:
-            self.gbest = min(self.pbest,par.pbest)
+            # print("pbestVal: ",par.pbestVal)
+            if par.pbestVal < self.gbestVal:
+                self.gbest = par.pbest
+                self.gbestVal = par.pbestVal
 
+        # print("-------------\ngbestVal:",self.gbestVal,"\n---------------\n")
 
     def __str__(self):
         return str(self.number) + str(self.getCord())
@@ -193,24 +239,38 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
     if TIMER_MODE:
         ITERATIONS = 10000000000
 
-    # particles random initial 
+    # particles random initial
     swarm = Swarm(SWARM_SIZE, N)
-    
+
     for i in range(ITERATIONS):
 
         for particle in swarm.particles:
             particle.updatePbest()
-        
+
         swarm.updateGbest()
 
         for particle in swarm.particles:
-            particle.updateVelocityAndPos()
+            particle.updateVelocityAndPos(swarm.gbest)
+
+        if DEBUG:
+            print("iteration:", i, "gbest: ",
+                  swarm.gbestVal, "\t", swarm.gbest[:5])
+
+    return (swarm.gbest, swarm.gbestVal)
+
 
 if __name__ == '__main__':
 
-    for test_func in FUNCTIONS:
+    # for test_func in FUNCTIONS:
 
-        (TEST_FUNC, BOUND) = test_func
+    #     (TEST_FUNC, BOUND) = test_func
 
-        for N in Ns:
-            PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+    #     for N in Ns:
+    #         PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
+
+    (TEST_FUNC, BOUND) = FUNCTIONS[0]
+    N = 10
+    print("<<<<", TEST_FUNC,
+          "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
+    
+    PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
