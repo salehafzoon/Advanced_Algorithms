@@ -29,7 +29,7 @@ wMax = 0.729
 wMin = 0.1
 wC = 0.99
 
-ITERATIONS = 10
+ITERATIONS = 400
 SWARM_SIZE = 40
 
 DEBUG = True
@@ -64,12 +64,9 @@ class Particle(object):
     def calculate_f(self):
         fVal = 0
         if TEST_FUNC == Rosenbrock:
-            # for i in range(self.n-1):
-            #     fVal += (100 * (self.x[i + 1] - self.x[i]
-            #                     ** 2) ** 2) + ((self.x[i] - 1) ** 2)
-
-            for i in range(self.n):
-                fVal += abs(self.x[i]**2)
+            for i in range(self.n-1):
+                fVal += (100 * (self.x[i + 1] - self.x[i]
+                                ** 2) ** 2) + ((self.x[i] - 1) ** 2)
 
         elif TEST_FUNC == Step:
             pass
@@ -83,30 +80,24 @@ class Particle(object):
 
     def updateVelocityAndPos(self, gbest):
         for i in range(self.n):
-            # c1 = rn.uniform(0, 2)
-            # c2 = 4 - c1
-
-            c1 = 1.49
-            c2 = 1.49
+            c1 = rn.uniform(0, 3)
+            c2 = 4 - c1
+            # c2 = rn.uniform(0, 2)
 
             r1 = rn.random()
             r2 = rn.random()
 
-            # newV = (self.w * self.v[i]) + (c1 * r1 *
-            #                                (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
+            self.v[i] = (self.w * self.v[i]) + (c1 * r1 *
+                                                (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
 
-            newV = (self.w * self.v[i]) + (c1 * r1 *
-                                           (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
-
-            self.v[i] = newV
-
-            self.x[i] = self.x[i] + self.v[i]
+            self.x[i] += self.v[i]
+            self.calculate_f()
 
         self.updateW()
 
     def updateW(self):
-        # self.w = min(self.w * wC, wMin)
-        self.w = self.w
+        self.w = min(self.w * wC, wMin)
+        # self.w = self.w
 
     def __str__(self):
         return "x: " + str(self.x[:5]) + "f(x): " + str(self.f)
@@ -134,12 +125,9 @@ class Swarm(object):
 
     def updateGbest(self):
         for par in self.particles:
-            # print("pbestVal: ",par.pbestVal)
             if par.pbestVal < self.gbestVal:
                 self.gbest = par.pbest
                 self.gbestVal = par.pbestVal
-
-        # print("-------------\ngbestVal:",self.gbestVal,"\n---------------\n")
 
     def __str__(self):
         return str(self.number) + str(self.getCord())
@@ -254,7 +242,9 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
 
         if DEBUG:
             print("iteration:", i, "gbest: ",
-                  swarm.gbestVal, "\t", swarm.gbest[:5])
+                  swarm.gbestVal, "\t", swarm.gbest[:4])
+
+            # print("iteration:", i, "gbest: ", swarm.gbestVal)
 
     return (swarm.gbest, swarm.gbestVal)
 
@@ -272,5 +262,5 @@ if __name__ == '__main__':
     N = 10
     print("<<<<", TEST_FUNC,
           "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
-    
+
     PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
