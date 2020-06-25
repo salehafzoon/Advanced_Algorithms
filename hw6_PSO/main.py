@@ -23,10 +23,11 @@ FUNCTIONS = [(Rosenbrock, 30), (Step, 100), (Ackley, 32),
 
 TEST_FUNC = None
 BOUND = None
-Ns = [10, 30, 50]
+# Ns = [10, 30, 50]
+Ns = [50]
 
 wMax = 0.9
-wMin = 0.1
+wMin = 0.2
 wC = 0.7
 
 
@@ -36,7 +37,7 @@ SWARM_SIZE = 80
 
 DEBUG = False
 TIMER_MODE = False
-EXEl_WRITE = True
+EXEl_WRITE = False
 
 c1Min = c2Min = 0.5
 c1Max = c2Max = 2.5
@@ -45,9 +46,12 @@ c1Max = c2Max = 2.5
 class Particle(object):
 
     w = wMax
+    ind = 0
+    swarm_size = None
 
-    def __init__(self, n):
+    def __init__(self, n, size):
         self.n = n
+        self.swarm_size = size
         self.x = [-1] * n
         self.v = [-1] * n
         self.f = None
@@ -56,11 +60,20 @@ class Particle(object):
         self.positioning()
 
     def positioning(self):
+
+        # k = BOUND/self.swarm_size
+
+        # for i in range(self.n):
+        #     domain = BOUND - (k * self.ind)
+
+        #     self.x[i] = rn.uniform(-domain, domain)
+        #     self.v[i] = 0.1 * self.x[i]
+
+        # self.ind += 1
+
         for i in range(self.n):
-            # self.x[i] = 1
             self.x[i] = rn.uniform(-BOUND, BOUND)
             self.v[i] = 0.1 * self.x[i]
-            # self.v[i] = 0.1
 
         self.calculate_f()
         self.pbest = self.x
@@ -74,7 +87,7 @@ class Particle(object):
                                 ** 2) ** 2) + ((self.x[i] - 1) ** 2)
 
         if TEST_FUNC == Step:
-            for i in range(self.n-1):
+            for i in range(self.n):
                 fVal += (self.x[i] + 0.5) ** 2
 
         elif TEST_FUNC == Ackley:
@@ -103,7 +116,39 @@ class Particle(object):
                 fVal += self.x[i]**2 - 10 * \
                     math.cos(2 * math.pi*self.x[i]) + 10
 
+        elif TEST_FUNC == Genr_Penalized:
+            fVal = self.gen_penalized()
+
         self.f = fVal
+
+    def gen_penalized(self):
+        fVal = 0
+        pi = math.pi
+        sigma1 = sigma2 = 0
+        for i in range(self.n-1):
+            yi = 1 + 1/4 * (self.x[i]+1)
+            yi1 = 1 + 1/4 * (self.x[i+1]+1)
+
+            sigma1 += ((yi - 1) ** 2) * (1 + 10 * math.sin(pi * yi1) ** 2)
+
+        for i in range(self.n):
+            sigma2 += self.u(self.x[i], 10, 100, 4)
+
+        y1 = 1 + 1/4 * (self.x[0]+1)
+        yn = 1 + 1/4 * (self.x[self.n-1]+1)
+
+        fVal = pi/self.n * (10 * math.sin(pi * y1) +
+                            sigma1 + (yn-1) ** 2) + sigma2
+
+        return fVal
+
+    def u(self, xi, a, k, m):
+        if xi > a:
+            return k * (xi-a)**m
+        elif xi >= -a:
+            return 0
+        else:
+            return k * (-xi-a)**m
 
     def updatePbest(self):
         if self.f < self.pbestVal:
@@ -112,7 +157,7 @@ class Particle(object):
 
     def updateVelocityAndPos(self, gbest, t):
         for i in range(self.n):
-            c1 = rn.uniform(0, 2.5)
+            c1 = rn.uniform(0, 2)
             c2 = 4 - c1
 
             # c1 = (c1Min - c1Max) * (t/ITERATIONS) + c1Min
@@ -155,7 +200,7 @@ class Swarm(object):
 
     def initial(self):
         for _ in range(self.size):
-            self.particles.append(Particle(self.n))
+            self.particles.append(Particle(self.n, self.size))
 
         self.gbest = self.particles[0].x
         self.gbestVal = self.particles[0].f
@@ -299,7 +344,7 @@ if __name__ == '__main__':
     else:
         run = 10
 
-    for test_func in FUNCTIONS:
+    for test_func in FUNCTIONS[4:]:
         (TEST_FUNC, BOUND) = test_func
         row += 3
 
@@ -327,16 +372,3 @@ if __name__ == '__main__':
             if EXEl_WRITE:
                 writeResultToExel(answers, row)
             row += 1
-
-            # print("<<<<", TEST_FUNC,
-            #       "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
-
-            # (x, f) = PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
-
-    # (TEST_FUNC, BOUND) = FUNCTIONS[0]
-    # N = 30
-
-    # print("<<<<", TEST_FUNC,
-    #       "function with bound :[", -BOUND, ",", BOUND, "] and N =", N, ">>>>")
-
-    # PSO(SWARM_SIZE, N, ITERATIONS, DEBUG)
