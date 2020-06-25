@@ -31,12 +31,12 @@ wC = 0.7
 
 
 # 40000 evaluation
-ITERATIONS = 100
-SWARM_SIZE = 20
+ITERATIONS = 500
+SWARM_SIZE = 80
 
 DEBUG = False
 TIMER_MODE = False
-EXEl_WRITE = False
+EXEl_WRITE = True
 
 c1Min = c2Min = 0.5
 c1Max = c2Max = 2.5
@@ -72,6 +72,10 @@ class Particle(object):
             for i in range(self.n-1):
                 fVal += (100 * (self.x[i + 1] - self.x[i]
                                 ** 2) ** 2) + ((self.x[i] - 1) ** 2)
+
+        if TEST_FUNC == Step:
+            for i in range(self.n-1):
+                fVal += (self.x[i] + 0.5) ** 2
 
         elif TEST_FUNC == Ackley:
             part1 = part2 = 0
@@ -171,8 +175,6 @@ class Swarm(object):
 
 def printResult(answers):
 
-    # (bestF, bestX, duration)
-
     minAns = min(answers, key=lambda t: t[0])
     avgAns = sum(ans[0] for ans in answers)/len(answers)
     maxAns = max(answers, key=lambda t: t[0])
@@ -186,35 +188,37 @@ def printResult(answers):
         print("\nbest = ", round(minAns[0], 3), "avg = ", round(avgAns, 3),
               " worst = ", round(maxAns[0], 3), "variance = ", round(variance, 3))
         print("----------------")
-        print("minTime = ", round(minTime[0], 3), "avgTime = ",
-              round(avgTime, 3), " maxTime = ", round(maxTime[0], 3))
+        print("minTime = ", round(minTime[2], 3), "avgTime = ",
+              round(avgTime, 3), " maxTime = ", round(maxTime[2], 3))
     else:
         print("\nbest = ", minAns)
 
 
-def writeResultToExel(file_name, answers, myRow):
-    minCost = min(answers, key=lambda t: t[1])[1]
-    if TIMER_MODE == False:
-        maxCost = max(answers, key=lambda t: t[1])[1]
-        avgCost = sum(ans[1] for ans in answers)/len(answers)
-        costVariance = round(math.sqrt(np.var([ans[1]for ans in answers])), 3)
+def writeResultToExel(answers, myRow):
+    minAns = min(answers, key=lambda t: t[0])
+    avgAns = sum(ans[0] for ans in answers)/len(answers)
+    maxAns = max(answers, key=lambda t: t[0])
+    variance = round(math.sqrt(np.var([ans[0]for ans in answers])), 3)
 
-        avgTime = str(sum(float(ans[2])for ans in answers)/len(answers))[0:6]
+    minTime = min(answers, key=lambda t: t[2])
+    avgTime = sum(ans[2] for ans in answers)/len(answers)
+    maxTime = max(answers, key=lambda t: t[2])
 
-    wbkName = 'one_min_Results.xlsx'
+    wbkName = 'Results.xlsx'
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
-        myCol = 7
+        myCol = 2
 
-        # wks.cell(row=myRow, column=1).value = file_name
+        wks.cell(row=myRow, column=myCol).value = round(minAns[0], 3)
 
-        wks.cell(row=myRow, column=myCol).value = minCost
         if TIMER_MODE == False:
-            wks.cell(row=myRow, column=myCol+1).value = avgCost
-            wks.cell(row=myRow, column=myCol+2).value = maxCost
-            wks.cell(row=myRow, column=myCol+3).value = costVariance
+            wks.cell(row=myRow, column=myCol+1).value = round(avgAns, 3)
+            wks.cell(row=myRow, column=myCol+2).value = round(maxAns[0], 3)
+            wks.cell(row=myRow, column=myCol+3).value = round(variance, 3)
 
-            wks.cell(row=myRow, column=myCol+4).value = avgTime
+            wks.cell(row=myRow, column=myCol+4).value = round(minTime[2], 3)
+            wks.cell(row=myRow, column=myCol+5).value = round(avgTime, 3)
+            wks.cell(row=myRow, column=myCol+6).value = round(maxTime[2], 3)
 
     wbk.save(wbkName)
     wbk.close
@@ -288,7 +292,7 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
 
 if __name__ == '__main__':
 
-    row = 3
+    row = 1
 
     if TIMER_MODE:
         run = 1
@@ -297,6 +301,7 @@ if __name__ == '__main__':
 
     for test_func in FUNCTIONS:
         (TEST_FUNC, BOUND) = test_func
+        row += 3
 
         for N in Ns:
             print("\n<<<<", TEST_FUNC,
@@ -320,7 +325,7 @@ if __name__ == '__main__':
             printResult(answers)
 
             if EXEl_WRITE:
-                writeResultToExel(filename, answers, myRow)
+                writeResultToExel(answers, row)
             row += 1
 
             # print("<<<<", TEST_FUNC,
