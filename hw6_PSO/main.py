@@ -23,21 +23,21 @@ FUNCTIONS = [(Rosenbrock, 30), (Step, 100), (Ackley, 32),
 
 TEST_FUNC = None
 BOUND = None
-# Ns = [10, 30, 50]
-Ns = [50]
+
+Ns = [10, 30, 50]
+# Ns = [10, 30]
 
 wMax = 0.9
 wMin = 0.2
-wC = 0.7
-
+wC = 0.5
 
 # 40000 evaluation
 ITERATIONS = 500
 SWARM_SIZE = 80
 
 DEBUG = False
-TIMER_MODE = False
-EXEl_WRITE = False
+TIMER_MODE = True
+EXEl_WRITE = True
 
 c1Min = c2Min = 0.5
 c1Max = c2Max = 2.5
@@ -73,6 +73,7 @@ class Particle(object):
 
         for i in range(self.n):
             self.x[i] = rn.uniform(-BOUND, BOUND)
+            # self.x[i] = 0
             self.v[i] = 0.1 * self.x[i]
 
         self.calculate_f()
@@ -175,11 +176,12 @@ class Particle(object):
         self.updateW(t)
 
     def updateW(self, t):
-        # self.w *= wC
-        # self.w = wMax/math.log(t+1)
-        self.w = math.exp(-0.9 * t+1)*wMax
+        # self.w = max(wMax * wC, wMin)
+        # self.w = max(wMax/math.log(t+1), wMin)
+        # self.w = max(math.exp(-0.99 * t+1) * 2.24, wMin)
 
-        self.w = min(self.w, wMin)
+        # self.w = wMin
+        self.w = min(math.exp(-0.9 * t+1)*wMax, wMin)
 
     def __str__(self):
         return "x: " + str(self.x[:5]) + "f(x): " + str(self.f)
@@ -249,7 +251,10 @@ def writeResultToExel(answers, myRow):
     avgTime = sum(ans[2] for ans in answers)/len(answers)
     maxTime = max(answers, key=lambda t: t[2])
 
-    wbkName = 'Results.xlsx'
+    wbkName = 'Results2.xlsx'
+    if TIMER_MODE:
+        wbkName = 'one_min_Results.xlsx'
+
     wbk = openpyxl.load_workbook(wbkName)
     for wks in wbk.worksheets:
         myCol = 2
@@ -269,46 +274,37 @@ def writeResultToExel(answers, myRow):
     wbk.close
 
 
-def plotResult(generation, bests, averages):
+def plotParameters(parameters):
 
-    plt.plot(list(range(generation)), bests, '-', color="gray",
-             label='best of generations', linewidth=1.52)
+    # print(parameters)
 
-    plt.xlabel('best solution')
-    plt.ylabel('generation')
+    plt.plot(list(range(ITERATIONS)), [y[0] for y in parameters], '-', color="gray",
+             label='gbest per iteration', linewidth=1.52)
 
-    plt.show()
-
-    plt.plot(list(range(generation)), averages, 'bo-',
-             label='avg of generations', linewidth=1.5)
-
-    plt.xlabel('best solution')
-    plt.ylabel('generation')
+    plt.xlabel('iteration')
+    plt.ylabel('gbest')
 
     plt.show()
 
+    plt.plot(list(range(ITERATIONS)), [y[1] for y in parameters], 'bo-',
+             label='Inertia weight per iteration', linewidth=1.5)
 
-def plotProgress(bests, avgs):
-
-    plt.plot(list(range(len(bests))), bests, '-', color="gray",
-             label='best of generations', linewidth=1.5)
-
-    plt.xlabel('best solution')
-    plt.ylabel('generation')
-
+    plt.xlabel('iteration')
+    plt.ylabel('W')
     plt.show()
 
-    plt.plot(list(range(len(avgs))), avgs, 'bo-',
-             label='avg of generations', linewidth=1.5)
+    plt.plot(list(range(ITERATIONS)), [y[2] for y in parameters], 'bo-',
+             label='velocity per iteration', linewidth=1.5)
 
-    plt.xlabel('avg solution')
-    plt.ylabel('generation')
+    plt.xlabel('iteration')
+    plt.ylabel('V')
 
     plt.show()
 
 
 def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
 
+    parameters = []
     timer = time.time()
     if TIMER_MODE:
         ITERATIONS = 10000000000
@@ -317,6 +313,10 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
     swarm = Swarm(SWARM_SIZE, N)
 
     for i in range(ITERATIONS):
+
+        if TIMER_MODE and time.time()-timer > 60:
+            print('time out')
+            break
 
         for particle in swarm.particles:
             particle.updatePbest()
@@ -330,7 +330,10 @@ def PSO(SWARM_SIZE, N, ITERATIONS=50, DEBUG=True):
             print("iteration:", i, "gbest: ",
                   swarm.gbestVal, "\t", [round(x, 3) for x in swarm.gbest[:10]])
 
-            # print("iteration:", i, "gbest: ", swarm.gbestVal)
+        parameters.append(
+            (round(swarm.gbestVal, 3), swarm.particles[0].w, swarm.particles[0].v[0]))
+
+    # plotParameters(parameters)
 
     return (swarm.gbest, swarm.gbestVal)
 
@@ -344,7 +347,7 @@ if __name__ == '__main__':
     else:
         run = 10
 
-    for test_func in FUNCTIONS[4:]:
+    for test_func in FUNCTIONS:
         (TEST_FUNC, BOUND) = test_func
         row += 3
 
