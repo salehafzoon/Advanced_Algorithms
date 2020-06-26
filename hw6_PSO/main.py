@@ -24,20 +24,20 @@ FUNCTIONS = [(Rosenbrock, 30), (Step, 100), (Ackley, 32),
 TEST_FUNC = None
 BOUND = None
 
-Ns = [10, 30, 50]
-# Ns = [10, 30]
+# Ns = [10, 30, 50]
+Ns = [50]
 
 wMax = 0.9
 wMin = 0.2
-wC = 0.5
+wC = 0.8
 
 # 40000 evaluation
 ITERATIONS = 500
 SWARM_SIZE = 80
 
 DEBUG = False
-TIMER_MODE = True
-EXEl_WRITE = True
+TIMER_MODE = False
+EXEl_WRITE = False
 
 c1Min = c2Min = 0.5
 c1Max = c2Max = 2.5
@@ -161,8 +161,8 @@ class Particle(object):
             c1 = rn.uniform(0, 2)
             c2 = 4 - c1
 
-            # c1 = (c1Min - c1Max) * (t/ITERATIONS) + c1Min
-            # c2 = (c2Min - c2Max) * (t/ITERATIONS) + c2Min
+            # c1 = (c1Max - c1Min) * (t/ITERATIONS) + c1Min
+            # c2 = (c2Max - c2Min) * (t/ITERATIONS) + c2Min
 
             r1 = rn.random()
             r2 = rn.random()
@@ -170,18 +170,22 @@ class Particle(object):
             self.v[i] = (self.w * self.v[i]) + (c1 * r1 *
                                                 (self.pbest[i] - self.x[i])) + (c2 * r2 * (gbest[i] - self.x[i]))
 
-            self.x[i] += self.v[i]
+            vMax = BOUND / 4
+
+            self.x[i] += min(self.v[i], vMax)
             self.calculate_f()
 
         self.updateW(t)
 
     def updateW(self, t):
-        # self.w = max(wMax * wC, wMin)
-        # self.w = max(wMax/math.log(t+1), wMin)
-        # self.w = max(math.exp(-0.99 * t+1) * 2.24, wMin)
+        # self.w *= wC
+        # self.w = (0.7 * wMax/math.log(t+1))
+        self.w = math.exp(-0.9 * t+1) * wMax
 
         # self.w = wMin
-        self.w = min(math.exp(-0.9 * t+1)*wMax, wMin)
+        # self.w = min(math.exp(-0.9 * t+1)*wMax, wMin)
+
+        self.w = min(self.w, wMin)
 
     def __str__(self):
         return "x: " + str(self.x[:5]) + "f(x): " + str(self.f)
@@ -238,7 +242,7 @@ def printResult(answers):
         print("minTime = ", round(minTime[2], 3), "avgTime = ",
               round(avgTime, 3), " maxTime = ", round(maxTime[2], 3))
     else:
-        print("\nbest = ", minAns)
+        print("\nbest = ", [round(x, 3) for x in minAns[0]])
 
 
 def writeResultToExel(answers, myRow):
@@ -269,6 +273,8 @@ def writeResultToExel(answers, myRow):
             wks.cell(row=myRow, column=myCol+4).value = round(minTime[2], 3)
             wks.cell(row=myRow, column=myCol+5).value = round(avgTime, 3)
             wks.cell(row=myRow, column=myCol+6).value = round(maxTime[2], 3)
+            wks.cell(row=myRow, column=myCol +
+                     7).value = [round(x, 3) for x in minAns[0]]
 
     wbk.save(wbkName)
     wbk.close
@@ -278,7 +284,7 @@ def plotParameters(parameters):
 
     # print(parameters)
 
-    plt.plot(list(range(ITERATIONS)), [y[0] for y in parameters], '-', color="gray",
+    plt.plot(list(range(ITERATIONS)), [y[0] for y in parameters], '-', color="blue",
              label='gbest per iteration', linewidth=1.52)
 
     plt.xlabel('iteration')
@@ -286,14 +292,14 @@ def plotParameters(parameters):
 
     plt.show()
 
-    plt.plot(list(range(ITERATIONS)), [y[1] for y in parameters], 'bo-',
+    plt.plot(list(range(ITERATIONS)), [y[1] for y in parameters], '-', color="gray",
              label='Inertia weight per iteration', linewidth=1.5)
 
     plt.xlabel('iteration')
     plt.ylabel('W')
     plt.show()
 
-    plt.plot(list(range(ITERATIONS)), [y[2] for y in parameters], 'bo-',
+    plt.plot(list(range(ITERATIONS)), [y[2] for y in parameters], '-', color="gray",
              label='velocity per iteration', linewidth=1.5)
 
     plt.xlabel('iteration')
@@ -347,7 +353,7 @@ if __name__ == '__main__':
     else:
         run = 10
 
-    for test_func in FUNCTIONS:
+    for test_func in FUNCTIONS[4:5]:
         (TEST_FUNC, BOUND) = test_func
         row += 3
 
