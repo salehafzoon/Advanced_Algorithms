@@ -25,7 +25,6 @@ TEST_FUNC = None
 BOUND = None
 
 Ns = [10, 30, 50]
-Ns = [30 ,50]
 
 wMax = 0.9
 wMin = 0.2

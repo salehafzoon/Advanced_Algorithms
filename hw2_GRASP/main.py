@@ -316,33 +316,39 @@ def writeResultToExel(file_name, answers, myRow):
     wbk.save(wbkName)
     wbk.close
 
+def plotBoxDiagram(answers):
+    costs = [ans[1] for ans in answers]
+    plt.boxplot(costs)
+    plt.show()
 
 if __name__ == '__main__':
 
     myRow = 2
-    for root, directories, filenames in os.walk("instances/"):
-        for filename in filenames:
-            file = os.path.join(root, filename)
-            problem = tsplib95.load_problem(str(file))
-            # problem = tsplib95.load_problem("instances/M/R.200.100.1.sop")
+    # for root, directories, filenames in os.walk("instances/"):
+    #     for filename in filenames:
+    #         file = os.path.join(root, filename)
+    #         problem = tsplib95.load_problem(str(file))
+    problem = tsplib95.load_problem("instances/M/R.200.100.1.sop")
 
-            graph = Graph(problem)
-            dependencies = calculateDependencies(problem)
-            print("\ninstance:", problem.name, "ALPHA:", ALPHA, "\n")
+    graph = Graph(problem)
+    dependencies = calculateDependencies(problem)
+    print("\ninstance:", problem.name, "ALPHA:", ALPHA, "\n")
 
-            answers = []
-            
-            for i in range(5):
-                start = time.time()
+    answers = []
+    
+    for i in range(10):
+        start = time.time()
 
-                (state, cost), history = GRASP(problem, constructGreadyRandSol,
-                                                costFunction, localSearch, NUM_ITERATIONS, DEBUG)
+        (state, cost), history = GRASP(problem, constructGreadyRandSol,
+                                        costFunction, localSearch, NUM_ITERATIONS, DEBUG)
 
-                
-                duration = str(time.time() - start)[0:6]
-                answers.append((state, cost, duration))
+        
+        duration = str(time.time() - start)[0:6]
+        answers.append((state, cost, duration))
+        print('time:',duration , "cost:",cost)
 
-            printResult(answers)           
-            if EXEl_WRITE:
-                writeResultToExel(filename, answers, myRow)
-                myRow += 1
+    printResult(answers)
+    plotBoxDiagram(answers)           
+    if EXEl_WRITE:
+        writeResultToExel(filename, answers, myRow)
+        myRow += 1

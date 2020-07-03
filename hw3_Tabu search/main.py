@@ -365,42 +365,48 @@ def writeResultToExel(file_name, answers, myRow):
     wbk.save(wbkName)
     wbk.close
 
+def plotBoxDiagram(answers):
+    costs = [ans[1] for ans in answers]
+    plt.boxplot(costs)
+    plt.show()
 
 if __name__ == '__main__':
 
     myRow = 2
-    for root, directories, filenames in os.walk("instances/"):
-        for filename in filenames:
-            file = os.path.join(root, filename)
-            problem = tsplib95.load_problem(str(file))
-    # problem = tsplib95.load_problem("instances/E/ESC78.sop")
+    # for root, directories, filenames in os.walk("instances/"):
+    #     for filename in filenames:
+    #         file = os.path.join(root, filename)
+    #         problem = tsplib95.load_problem(str(file))
+    problem = tsplib95.load_problem("instances/E/prob.7.65.sop")
 
-            graph = Graph(problem)
-            dependencies = calculateDependencies(problem)
-            answers = []
+    graph = Graph(problem)
+    dependencies = calculateDependencies(problem)
+    answers = []
 
-            # initialing tabu list size
-            TABU_LIST_SIZE = int(problem.dimension/14)
-            MAX_MEM_DEPTH = int(problem.dimension/16)
+    # initialing tabu list size
+    TABU_LIST_SIZE = int(problem.dimension/14)
+    MAX_MEM_DEPTH = int(problem.dimension/16)
 
-            n = problem.dimension
+    n = problem.dimension
 
-            print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
-                TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
+    print("\ninstance:", problem.name, "TABU_LIST_SIZE:",
+        TABU_LIST_SIZE, "MAX_MEM_DEPTH:", MAX_MEM_DEPTH, "\n")
 
-            for i in range(10):
-                start = time.time()
+    for i in range(10):
+        start = time.time()
 
-                (state, cost), history = TabuSearch(problem, initialStart, costFunction,
-                                                    improveSolution, updateTabuList,
-                                                    NUM_ITERATIONS, TABU_LIST_SIZE,
-                                                    MAX_MEM_DEPTH, DEBUG)
+        (state, cost), history = TabuSearch(problem, initialStart, costFunction,
+                                            improveSolution, updateTabuList,
+                                            NUM_ITERATIONS, TABU_LIST_SIZE,
+                                            MAX_MEM_DEPTH, DEBUG)
 
-                
-                duration = str(time.time() - start)[0:6]
-                answers.append((state, cost, duration))
+        
+        duration = str(time.time() - start)[0:6]
+        answers.append((state, cost, duration))
+        print('time:',duration , "cost:",cost)
 
-            printResult(answers)
-            if EXEl_WRITE:
-                writeResultToExel(filename, answers, myRow)
-                myRow += 1
+    printResult(answers)
+    plotBoxDiagram(answers)
+    if EXEl_WRITE:
+        writeResultToExel(filename, answers, myRow)
+        myRow += 1

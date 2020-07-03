@@ -33,7 +33,7 @@ bests = []
 averages = []
 
 TIMER_MODE = False
-EXEl_WRITE = True
+EXEl_WRITE = False
 
 
 class Node(object):
@@ -503,12 +503,16 @@ def GA(problem, initialPop, maxGeneration=100,
 
     return population[0]
 
+def plotBoxDiagram(answers):
+    costs = [ans[1] for ans in answers]
+    plt.boxplot(costs)
+    plt.show()
 
 if __name__ == '__main__':
 
     myRow = 3
 
-    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.1/"):
+    for root, directories, filenames in os.walk("instances/GoldenWasilKellyAndChao_0.75/"):
         for filename in filenames:
             file = os.path.join(root, filename)
             problem = loadInstance(str(file))
@@ -538,6 +542,8 @@ if __name__ == '__main__':
                     (sol.chromosome, sol.fitness, duration, vehicels))
 
             printResult(answers)
+            plotBoxDiagram(answers)
+
             if EXEl_WRITE:
                 writeResultToExel(filename, answers, myRow)
                 myRow += 1

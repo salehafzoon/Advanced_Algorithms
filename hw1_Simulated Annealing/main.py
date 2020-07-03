@@ -26,7 +26,7 @@ EPSILON = 1e-323
 graph = None
 dependencies = []
 
-EXEl_WRITE = True
+EXEl_WRITE = False
 
 class Edge(object):
 
@@ -319,33 +319,40 @@ def plotResult(costs):
              label='algorithm progress', linewidth=2)
     plt.show()
 
+def plotBoxDiagram(answers):
+    costs = [ans[1] for ans in answers]
+    plt.boxplot(costs)
+    plt.show()
 
 if __name__ == '__main__':
 
     myRow = 50
-    for root, directories, filenames in os.walk("instances/M"):
-        for filename in filenames:
-            file = os.path.join(root, filename)
-            problem = tsplib95.load_problem(str(file))
-    # problem = tsplib95.load_problem("instances/E/ESC78.sop")
+    # for root, directories, filenames in os.walk("instances/H"):
+    #     for filename in filenames:
+    #         file = os.path.join(root, filename)
+    #         problem = tsplib95.load_problem(str(file))
+    problem = tsplib95.load_problem("instances/M/R.200.100.1.sop")
 
-            graph = Graph(problem)
-            dependencies = calculateDependencies(problem)
-            answers = []
+    graph = Graph(problem)
+    dependencies = calculateDependencies(problem)
+    answers = []
 
-            print("\ninstance:", problem.name, "\tTEMP_MODE:",
-                TEMP_MODE, "\tALPHA:", ALPHA, "\n")
+    print("\ninstance:", problem.name, "\tTEMP_MODE:",
+        TEMP_MODE, "\tALPHA:", ALPHA, "\n")
 
-            for _ in range(10):
-                start = time.time()
+    for _ in range(10):
+        start = time.time()
 
-                state, cost, states, costs = annealing(problem,random_start, cost_function, get_neighbour,
-                                                        acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
-                
-                duration = str(time.time() - start)[0:6]
-                answers.append((state, cost, duration))
+        state, cost, states, costs = annealing(problem,random_start, cost_function, get_neighbour,
+                                                acceptance_probability, updateTemperature, NUM_ITERATIONS, DEBUG)
+        
+        duration = str(time.time() - start)[0:6]
+        print('time:',duration , "cost:",cost)
+        answers.append((state, cost, duration))
 
-            printResult(answers)
-            if EXEl_WRITE:
-                writeResultToExel(filename, answers, myRow)
-                myRow += 1
+    printResult(answers)
+    plotBoxDiagram(answers)
+
+    if EXEl_WRITE:
+        writeResultToExel(filename, answers, myRow)
+        myRow += 1
