@@ -6,6 +6,7 @@
 
 
 ## Problem Description
+### CCVRP :
 We are given n − 1 nodes, one depot and distances from the nodes to the depot, as well as between nodes.
 In addition to the Classical CVRP, a cluster should be visited by only one truck and this visit cannot be split (once a truck starts
 to visit a cluster, it should complete the visit of all nodes in that cluster). The problem is
@@ -13,12 +14,13 @@ to find tours for the trucks of minimal total length that satisfy the node deman
 violating the truck capacity constraint and the clustering constraints.
 
 <div align="center">
-  <img src="./fig1.PNG" width="310px">
-  <img src="./fig2.PNG" width="290px">
+  <img src="./fig2.PNG" width="300px">
+  <img src="./fig3.PNG" width="290px">
 </div>
 
-
-
+### Function Optimization :
+  The problem purpose is to trying minimize function value by finding global optimum point in the search space.
+  
 ## Instance Description
 **TSPLIB** is a library of sample instanes for the TSP (and related problems) from various soures and of various types.
 Instanes of the following problem classes are available:
@@ -32,11 +34,16 @@ Instanes of the following problem classes are available:
 python implementation
 
 ## Algorithms
-
-All the algorithms are designed base on the **Lexicographic Search** using **forwarding and back warding path-preserving-3-exchange** as explained in [An Ant Colony System Hybridized with a New Local Search for the Sequential Ordering Problem paper](http://people.idsia.ch/~luca/fd18cc00a0_article.pdf).
-
+### CCVRP :
+### Function Optimization :
+- Initial particles position randomly base on problem domain.
+- Update velocity and position:
 <div align="center">
-  <img src="./photos/3-exchange.png" width="68%">
+  <img src="./fig2.PNG" width="300px">
+</div>
+- Update Pbest & Gbest:
+<div align="center">
+  <img src="./fig2.PNG" width="300px">
 </div>
 
 ## Running
