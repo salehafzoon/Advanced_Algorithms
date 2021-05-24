@@ -4,6 +4,11 @@
 
 
 
+<div align="center">
+  <img src="./photo/fig2.PNG" width="300px">
+  <img src="./photo/fig3.PNG" width="300px">
+</div>
+
 
 ## Problem Description
 ### CCVRP :
